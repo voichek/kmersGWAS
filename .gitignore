@@ -3,3 +3,5 @@ bin
 include
 temp
 tests
+*.swp
+kmers_more_than_once

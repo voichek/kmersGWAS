@@ -1,0 +1,10 @@
+#ifndef KMER_COUNT_SHARENESS_H
+#define KMER_COUNT_SHARENESS_H
+
+
+#define HASH_TABLE_SIZE 1300000000
+
+
+
+
+#endif

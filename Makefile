@@ -16,19 +16,16 @@ OBJ =   $(BUILDIR)/kmc_file.o $(BUILDIR)/kmer_api.o $(BUILDIR)/mmer.o
 3OBJECTS := $(patsubst $(KMC_API)/%,$(BUILDDIR)/%,$(SOURCES_OBJECTS:.$(SRCEXT)=.o))
 
 
-all: kmer_count_shareness kmer_hist kmer_sort 
+all: kmer_count_shareness kmer_hist kmer_DB
 
-kmer_sort: $(SRCDIR)/kmer_sort.cpp $(SRCDIR)/kmer_general.h $(OBJ) 
-	$(CXX) $(OBJ) $(SRCDIR)/kmer_sort.cpp -o $(BINDIR)/kmer_sort $(CPPFLAGS) 
+kmer_DB: $(SRCDIR)/kmer_DB.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_DB.h  $(OBJ) 
+	$(CXX) $(OBJ) $(SRCDIR)/kmer_DB.cpp -o $(BINDIR)/kmer_DB $(CPPFLAGS) 
 
-kmer_count_shareness: $(SRCDIR)/kmer_count_shareness.cpp $(SRCDIR)/kmer_general.h $(OBJ) 
+kmer_count_shareness: $(SRCDIR)/kmer_count_shareness.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_count_shareness.h $(OBJ) 
 	$(CXX) $(OBJ) $(SRCDIR)/kmer_count_shareness.cpp -o $(BINDIR)/kmer_count_shareness $(CPPFLAGS) 
 
 kmer_hist: $(SRCDIR)/kmer_hist.cpp $(SRCDIR)/kmer_general.h $(OBJ) 
 	$(CXX) $(OBJ) $(SRCDIR)/kmer_hist.cpp -o $(BINDIR)/kmer_hist $(CPPFLAGS) 
-#	@echo "$(SOURCES_OBJECTS)"
-#	@echo "$(OBJECTS)"
-
 
 $(BUILDIR)/mmer.o: 
 	$(CXX) -c  $(KMC_API)/mmer.cpp -o $(BUILDIR)/mmer.o $(CPPFLAGS)  
