@@ -11,21 +11,21 @@ BUILDIR := build
 BINDIR := bin
 
 KMC_API = $(INCLUDEDIR)/KMC/kmc_api/
-OBJ =   $(BUILDIR)/kmc_file.o $(BUILDIR)/kmer_api.o $(BUILDIR)/mmer.o
+OBJ_KMC =   $(BUILDIR)/kmc_file.o $(BUILDIR)/kmer_api.o $(BUILDIR)/mmer.o 
+#OBJ_YV = $(BUILDIR)/kmer_DB.o
 #SOURCES_OBJECTS := $(shell find $(KMC_API) -type f -name *.$(SRCEXT))
 3OBJECTS := $(patsubst $(KMC_API)/%,$(BUILDDIR)/%,$(SOURCES_OBJECTS:.$(SRCEXT)=.o))
 
 
-all: kmer_count_shareness kmer_hist kmer_DB
+all: kmer_count_shareness YV_kmerhist
 
-kmer_DB: $(SRCDIR)/kmer_DB.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_DB.h  $(OBJ) 
-	$(CXX) $(OBJ) $(SRCDIR)/kmer_DB.cpp -o $(BINDIR)/kmer_DB $(CPPFLAGS) 
 
-kmer_count_shareness: $(SRCDIR)/kmer_count_shareness.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_count_shareness.h $(OBJ) 
-	$(CXX) $(OBJ) $(SRCDIR)/kmer_count_shareness.cpp -o $(BINDIR)/kmer_count_shareness $(CPPFLAGS) 
+YV_kmerhist: $(SRCDIR)/YV_kmerhist.cpp $(SRCDIR)/kmer_DB.h $(SRCDIR)/kmer_DB.cpp $(OBJ_KMC) 
+	$(CXX) $(OBJ_KMC) $(SRCDIR)/YV_kmerhist.cpp $(SRCDIR)/kmer_DB.cpp -o $(BINDIR)/YV_kmerhist $(CPPFLAGS) 
 
-kmer_hist: $(SRCDIR)/kmer_hist.cpp $(SRCDIR)/kmer_general.h $(OBJ) 
-	$(CXX) $(OBJ) $(SRCDIR)/kmer_hist.cpp -o $(BINDIR)/kmer_hist $(CPPFLAGS) 
+kmer_count_shareness: $(SRCDIR)/kmer_count_shareness.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_count_shareness.h $(OBJ_KMC) 
+	$(CXX) $(OBJ_KMC) $(SRCDIR)/kmer_count_shareness.cpp -o $(BINDIR)/kmer_count_shareness $(CPPFLAGS) 
+
 
 $(BUILDIR)/mmer.o: 
 	$(CXX) -c  $(KMC_API)/mmer.cpp -o $(BUILDIR)/mmer.o $(CPPFLAGS)  
@@ -36,6 +36,9 @@ $(BUILDIR)/kmer_api.o:
 $(BUILDIR)/kmc_file.o:
 	$(CXX) -c  $(KMC_API)/kmc_file.cpp -o $(BUILDIR)/kmc_file.o $(CPPFLAGS)
 
+#$(BUILDIR)/kmer_DB.o: $(SRCDIR)/kmer_DB.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_DB.h  $(OBJ_KMC) 
+#	$(CXX) -c $(OBJ_KMC) $(SRCDIR)/kmer_DB.cpp -o $(BUILDIR)/kmer_DB.o $(CPPFLAGS) 
+
 
 clean:
-	rm $(BINDIR)/kmer_hist $(OBJ)
+	rm $(BINDIR)/* $(OBJ_KMC)

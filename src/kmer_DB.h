@@ -2,7 +2,6 @@
 #define KMER_DB_H
 
 #include "kmer_general.h"
-#include <string>
 
 /* class Kmer_DB will represent a database of kmers
  * First, it will have a handel on the DB created by KMC and can easily open and iterate over it
@@ -11,7 +10,8 @@
 class Kmer_DB {
 	public:
 	Kmer_DB(std::string dir_path, std::string db_name); // Constructor
-	
+	~Kmer_DB() {}; //Destructor (compiler generate one automatically, but safe to be explicit)
+
 	// return the name of the DB
 	std::string get_name() { return m_db_name; }
 	
@@ -23,12 +23,16 @@ class Kmer_DB {
 	void intersect_kmers(const kmer_set& kmers_to_use, std::string file_name);
 
 	// Counts how many times each k-mer appeared and plot to std::cout
-	void calculate_kmers_counts_histogram();
+	std::vector<std::size_t> calculate_kmers_counts_histogram();
 
 	// get a hanle to the KMC DB to run over its k-mers 
 	CKMCFile get_KMC_handle();
 
 	private:
+	Kmer_DB(const Kmer_DB&); // Only declare and no implementation - to avoid default by compiler
+	Kmer_DB& operator=(const Kmer_DB&); //same for the = operator
+
+
 	std::string m_db_name;
 	std::string m_dir_path;
 };

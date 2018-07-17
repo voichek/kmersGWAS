@@ -35,7 +35,7 @@ struct Hash64 {
 typedef google::dense_hash_set<uint64, Hash64> kmer_set; 
 
 // Func: Read the list of accessions to use
-std::vector<std::string> read_accession_db_list(char *filename) {
+inline std::vector<std::string> read_accession_db_list(char *filename) {
 	std::ifstream fin(filename);
 	std::vector<std::string> res;
 	std::string name;
@@ -43,7 +43,7 @@ std::vector<std::string> read_accession_db_list(char *filename) {
 	return res;
 }
 
-double get_time(void)
+inline double get_time(void)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
