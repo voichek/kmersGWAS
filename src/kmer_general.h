@@ -1,21 +1,19 @@
 #ifndef KMER_GENERAL_H
 #define KMER_GENERAL_H
 
+#include <sys/time.h>
+
 #include <iostream>
 #include <string>
 #include <vector>
-#include <sys/time.h>
 #include <bitset>
 #include <fstream>
-#include <unordered_map>
-#include <stdlib.h>
 #include <algorithm>
-#include <cstdlib>
-#include <random>       // std::default_random_engine
-#include <chrono>       // std::chrono::system_clock
-#include "../include/KMC/kmc_api/kmc_file.h"
+
 #include <sparsehash/dense_hash_map>
 #include <sparsehash/dense_hash_set>
+
+#include "../include/KMC/kmc_api/kmc_file.h"
 
 #define KMER_LEN 31
 #define WLEN 64

@@ -20,6 +20,9 @@ OBJ_KMC =   $(BUILDIR)/kmc_file.o $(BUILDIR)/kmer_api.o $(BUILDIR)/mmer.o
 all: kmer_count_shareness YV_kmerhist
 
 
+YV_kmer_intersect_and_sort: $(SRCDIR)/YV_kmer_intersect_and_sort.cpp $(SRCDIR)/kmer_DB.h $(SRCDIR)/kmer_DB.cpp $(OBJ_KMC) 
+	$(CXX) $(OBJ_KMC) $(SRCDIR)/YV_kmer_intersect_and_sort.cpp $(SRCDIR)/kmer_DB.cpp -o $(BINDIR)/YV_kmer_intersect_and_sort $(CPPFLAGS) 
+
 YV_kmerhist: $(SRCDIR)/YV_kmerhist.cpp $(SRCDIR)/kmer_DB.h $(SRCDIR)/kmer_DB.cpp $(OBJ_KMC) 
 	$(CXX) $(OBJ_KMC) $(SRCDIR)/YV_kmerhist.cpp $(SRCDIR)/kmer_DB.cpp -o $(BINDIR)/YV_kmerhist $(CPPFLAGS) 
 
