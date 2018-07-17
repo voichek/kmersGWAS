@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 	vector<string> db_names = read_accession_db_list(argv[1]);
 	string dir_dbs(argv[3]);	
 
-	kmer_set kmer_list_to_use(8000000);
+	kmer_set kmer_list_to_use(800000000);
 	kmer_list_to_use.set_empty_key(-1); // need to define empty value for google dense hash table
 
 	double t0,t1;
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
 	} else { cerr << "could not open file?" << endl;}
 	for(uint64 i=0; i<DB_to_run; i++) {
 		Kmer_DB cur_acc(dir_dbs + "/" + db_names[i] , db_names[i]);
-		cur_acc.intersect_kmers(kmer_list_to_use, "check4");
+		cur_acc.intersect_kmers(kmer_list_to_use, "order_kmers_appear_more_than_once");
 	}
 	return 0;
 }
