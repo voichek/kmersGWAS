@@ -1,13 +1,6 @@
 #include "kmer_general.h"
-#include "kmer_count_shareness.h"
 
 using namespace std;
-using google::dense_hash_map;
-
-
-typedef dense_hash_map<uint64, uint64, Hash64> my_hash; 
-
-
 
 int main(int argc, char *argv[]) {
 	cerr << "DB list file: " << argv[1] << endl;

@@ -9,6 +9,7 @@
 #include <bitset>
 #include <fstream>
 #include <algorithm>
+#include <stdexcept>
 
 #include <sparsehash/dense_hash_map>
 #include <sparsehash/dense_hash_set>
@@ -17,6 +18,7 @@
 
 #define KMER_LEN 31
 #define WLEN 64
+#define HASH_TABLE_SIZE 1300000000
 
 
 struct Hash64 {
@@ -31,6 +33,7 @@ struct Hash64 {
 };
 
 typedef google::dense_hash_set<uint64, Hash64> kmer_set; 
+typedef google::dense_hash_map<uint64, uint64, Hash64> my_hash; 
 
 // Func: Read the list of accessions to use
 inline std::vector<std::string> read_accession_db_list(char *filename) {
@@ -51,9 +54,7 @@ inline double get_time(void)
 class CKmerAPI_YV: public CKmerAPI {
 	public:
 		CKmerAPI_YV (uint32 length = 0): CKmerAPI(length) {}
-		uint64 to_uint() {
-			return (uint64)kmer_data[0];
-		}
+		uint64 to_uint() {return (uint64)kmer_data[0];}
 		void infoYV() {
 			cerr << "kmer_length = " <<  kmer_length << endl;				// Kmer's length, in symbols
 			cerr << "byte_alignment = " <<  (int)byte_alignment << endl;			// A number of "empty" symbols placed before prefix to let sufix's symbols to start with a border of a byte
