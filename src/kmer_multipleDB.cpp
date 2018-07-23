@@ -34,7 +34,9 @@ kmer_multipleDB::kmer_multipleDB(const string& path_to_DBs, const std::vector<st
 	m_DBs(),
 	m_kmer_temp(),
 	m_accessions(db_names.size()),
-	m_kmers_pa((m_accessions+64-1)/64) // a way to divide and take ceil
+	m_kmers_pa(1000000),
+	m_hash_words((m_accessions+64-1)/64)
+//	m_kmers_pa((m_accessions+64-1)/64) // a way to divide and take ceil
 {
 	// build all the kmer_DB objects and open the sorted k-mer file
 	for(size_t i=0; i < db_names.size(); i++) {
@@ -44,9 +46,9 @@ kmer_multipleDB::kmer_multipleDB(const string& path_to_DBs, const std::vector<st
 	cerr << "We have " << m_accessions << " accessions and " << m_kmers_pa.size() << " hash-map\n";
 
 	// Initializing the hash maps (for every 64 accessions we have 1)
-	for(size_t i=0; i < m_kmers_pa.size(); i++)
-		m_kmers_pa[i].set_empty_key(-1);
-
+//	for(size_t i=0; i < m_kmers_pa.size(); i++)
+//		m_kmers_pa[i].set_empty_key(-1);
+	m_kmers_pa.set_empty_key(0xFFFFFFFFFFFFFFFF);
 }
 
 
@@ -60,32 +62,37 @@ void kmer_multipleDB::load_kmers(const uint64 &iter, const uint64 &total_iter) {
 	uint64 current_threshold = ((0x3FFFFFFFFFFFFFFF / total_iter)+1)*iter;
 	cerr << "threshold: " << bitset<64>(current_threshold) << endl; 
 	// Clear the content of the hash maps
-	for(size_t i=0; i < m_kmers_pa.size(); i++)
-		m_kmers_pa[i].clear();
+//	for(size_t i=0; i < m_kmers_pa.size(); i++)
+//		m_kmers_pa[i].clear();
+	m_kmers_pa.clear();
 
 	// To make sure all my hash maps are aligned I will initialize to 0 all the other ones
 	vector<uint64> new_kmers;	
-	my_hash::iterator it_hash;
+	my_multi_hash::iterator it_hash;
 	for(size_t acc_i = 0; acc_i < m_accessions; ++acc_i) {
 		cerr << "loading " << acc_i ;
 		size_t hashmap_i = acc_i / 64;
 		size_t bit_i = acc_i % 64;
 
 		uint64 or_val = 1ull << bit_i;
+		vector<uint64> new_bits(m_hash_words, 0 );
+		new_bits[hashmap_i] = or_val;
 		cerr << "\tnew bit: "<<bitset<64>(or_val) << endl;
 		
 		// Reading new-kmers from file
 		// new_kmers.resize(0); - the inner function is allready emptying this vector
 		m_DBs[acc_i].read_sorted_kmers(m_kmer_temp, current_threshold);
 		for(vector<uint64>::iterator it = m_kmer_temp.begin(); it != m_kmer_temp.end(); ++it) {
-			it_hash = m_kmers_pa[hashmap_i].find(*it);
-			if(it_hash == m_kmers_pa[hashmap_i].end()) 
+//			it_hash = m_kmers_pa[hashmap_i].find(*it);
+			it_hash = m_kmers_pa.find(*it);			
+			if(it_hash == m_kmers_pa.end()) 
 			{ 
-				m_kmers_pa[hashmap_i].insert(my_hash::value_type(*it, or_val));
+
+				m_kmers_pa.insert(my_multi_hash::value_type(*it, new_bits));
 	//			new_kmers.push_back(*it);
 			}
 			else {
-				it_hash->second |= or_val;
+				it_hash->second[hashmap_i] |= or_val;
 			}
 		}
 		// Add the new k-mers to the other hash_maps
@@ -101,13 +108,13 @@ void kmer_multipleDB::load_kmers(const uint64 &iter, const uint64 &total_iter) {
 }
 
 void kmer_multipleDB::plot_textual_hash_map() {
-	my_hash::iterator it_hash;
-	for(auto it : m_kmers_pa[0]) {
-		cout << bitset<64>(it.first) << "\t" << bitset<64>(it.second);
-		for(size_t i=1; i<m_kmers_pa.size(); i++) 
+	my_multi_hash::iterator it_hash;
+	for(auto it : m_kmers_pa) {
+		cout << bitset<64>(it.first); // << "\t" << bitset<64>(it.second);
+		for(size_t i=0; i<m_hash_words; i++) 
 		{
-			it_hash = m_kmers_pa[i].find(it.first);
-			cout << "\t" << bitset<64>(it_hash->second);
+//			it_hash = m_kmers_pa[i].find(it.first);
+			cout << "\t" << bitset<64>(it.second[i]);
 		}
 		cout << endl;
 	}

@@ -108,8 +108,12 @@ int main(int argc, char* argv[])
 		kmer_multipleDB multiDB(vm["DBs_path"].as<string>(), p_list.first, vm["kmers_file"].as<string>());    
 		
 		// 3. test
-		for(uint64 i=1; i<=10; i++) {
-			multiDB.load_kmers(i, 1000);
+		double t0, t1;
+		for(uint64 i=1; i<=100; i++) {
+			t0 = get_time();
+			multiDB.load_kmers(i, 100);
+			t1 = get_time();
+			cout << i << "\t" << (t1-t0)/60 << endl;
 		}
 //		multiDB.plot_textual_hash_map();
 	}

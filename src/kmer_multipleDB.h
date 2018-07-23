@@ -24,6 +24,7 @@
 #include "kmer_DB.h"
 
 
+typedef google::dense_hash_map<uint64, std::vector<uint64>, Hash64> my_multi_hash; 
 /**
  * @class kmer_multipleDB
  * @brief 
@@ -45,5 +46,7 @@ class kmer_multipleDB {
 		std::vector<Kmer_DB> m_DBs;
 		std::vector<uint64> m_kmer_temp;
 		std::size_t m_accessions;
-		std::vector<my_hash> m_kmers_pa;		
+//		std::vector<my_hash> m_kmers_pa;		
+		my_multi_hash m_kmers_pa;		
+		size_t m_hash_words;
 };
