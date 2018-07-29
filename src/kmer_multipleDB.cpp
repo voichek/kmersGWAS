@@ -20,6 +20,7 @@
 
 #include "kmer_multipleDB.h"
 #include <bitset>
+
 using namespace std;
 
 ///
@@ -34,7 +35,7 @@ kmer_multipleDB::kmer_multipleDB(const string& path_to_DBs, const std::vector<st
 	m_DBs(),
 	m_kmer_temp(),
 	m_accessions(db_names.size()),
-	m_kmers_pa(1000000),
+	m_kmers_pa(5000000),
 	m_hash_words((m_accessions+64-1)/64)
 //	m_kmers_pa((m_accessions+64-1)/64) // a way to divide and take ceil
 {
@@ -70,14 +71,16 @@ void kmer_multipleDB::load_kmers(const uint64 &iter, const uint64 &total_iter) {
 	vector<uint64> new_kmers;	
 	my_multi_hash::iterator it_hash;
 	for(size_t acc_i = 0; acc_i < m_accessions; ++acc_i) {
-		cerr << "loading " << acc_i ;
+		//cerr << "loading " << acc_i ;
 		size_t hashmap_i = acc_i / 64;
 		size_t bit_i = acc_i % 64;
 
 		uint64 or_val = 1ull << bit_i;
-		vector<uint64> new_bits(m_hash_words, 0 );
+		array<uint64, WORD64HASHT> new_bits;
+		new_bits[0] = 0ull;
+		new_bits[1] = 0ull;
 		new_bits[hashmap_i] = or_val;
-		cerr << "\tnew bit: "<<bitset<64>(or_val) << endl;
+//		cerr << "\tnew bit: "<<bitset<64>(or_val) << endl;
 		
 		// Reading new-kmers from file
 		// new_kmers.resize(0); - the inner function is allready emptying this vector
@@ -96,26 +99,63 @@ void kmer_multipleDB::load_kmers(const uint64 &iter, const uint64 &total_iter) {
 			}
 		}
 		// Add the new k-mers to the other hash_maps
-	//	for(size_t i=0; i < m_kmers_pa.size(); i++) {
-	//		if(i != hashmap_i) {
-	//			cerr << "adding new to:" << i << " : " << new_kmers.size() << endl;
-	//			for(vector<uint64>::iterator it = new_kmers.begin(); it != new_kmers.end(); ++it) {
-	//				m_kmers_pa[i].insert(my_hash::value_type(*it,0ull));
-	//			}
-	//		}
-	//	}
 	}
 }
 
-void kmer_multipleDB::plot_textual_hash_map() {
-	my_multi_hash::iterator it_hash;
-	for(auto it : m_kmers_pa) {
-		cout << bitset<64>(it.first); // << "\t" << bitset<64>(it.second);
-		for(size_t i=0; i<m_hash_words; i++) 
-		{
-//			it_hash = m_kmers_pa[i].find(it.first);
-			cout << "\t" << bitset<64>(it.second[i]);
+void kmer_multipleDB::plot_textual_hash_map(const std::vector<double> &phenotypes) {
+//	my_multi_hash::iterator it_hash;
+//	for(auto it : m_kmers_pa) {
+	for(my_multi_hash::iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) {		
+		double x = calculate_kmer_score(it, phenotypes);
+		if (x*x > 16.) { 
+			cout << bitset<64>(it->first); // << "\t" << bitset<64>(it.second);
+			for(size_t i=0; i<m_hash_words; i++) 
+			{
+				//			it_hash = m_kmers_pa[i].find(it.first);
+				cout << "\t" << bitset<64>(it->second[i]);
+			}
+			cout << "\t" << x << endl;
 		}
-		cout << endl;
+		//		cout << x << endl;
 	}
+}
+
+double kmer_multipleDB::calculate_kmer_score(my_multi_hash::iterator& it, 
+		const std::vector<double> &scores,
+		double min_in_group) {
+	double Ex0, Ex1, E2x0, E2x1, Sx0, Sx1, N0, N1, bit;
+	Ex0 = Ex1 = Sx0 = Sx1 = N0 = N1 = E2x0 = E2x1 = 0;
+	for(size_t i=0; i<m_accessions; i++) {
+		size_t hashmap_i = i / 64;
+		size_t bit_i = i % 64;
+		bit = double((it->second[hashmap_i] >> bit_i)&1);
+		Ex1 += bit*scores[i];
+		E2x1 += bit*scores[i]*scores[i];
+		Ex0 += (1-bit)*scores[i];
+		E2x0 += (1-bit)*scores[i]*scores[i];
+		N1 = N1+bit;
+	}
+	N0 = m_accessions - N1;
+	//	cout << "\t" << N0 << "\t" << N1;
+	if((min_in_group<=N0) && (min_in_group <= N1)) {
+		Ex0 /= N0;
+		E2x0 /= N0;
+		Ex1 /= N1;
+		E2x1 /= N1;
+
+		Sx0 = sqrt(E2x0 - Ex0*Ex0);
+		Sx1 = sqrt(E2x1 - Ex1*Ex1);	
+
+
+		double v = N1 + N0 - 2; // degree of freedom
+		double sp = sqrt(((N1-1) * Sx1 * Sx1 + (N0-1) * Sx0 * Sx0) / v); // Pooled variance
+		return (Ex1 - Ex0) / (sp * sqrt(1.0 / N1 + 1.0 / N0)); // t-test statistics
+
+		//		students_t dist(v);
+		//		double q = cdf(complement(dist, fabs(t_stat)));
+		//		return t_test;
+	}
+	else {return 0;}
+
+	// Degrees of freedom:
 }

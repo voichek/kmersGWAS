@@ -18,13 +18,14 @@
 /// GNU General Public License as published by the Free Software Foundation.
 ///=====================================================================================
 ///
-
+#include <array>
 
 #include "kmer_general.h"
 #include "kmer_DB.h"
 
+#define WORD64HASHT 16
 
-typedef google::dense_hash_map<uint64, std::vector<uint64>, Hash64> my_multi_hash; 
+typedef google::dense_hash_map<uint64, std::array<uint64, WORD64HASHT>, Hash64> my_multi_hash; 
 /**
  * @class kmer_multipleDB
  * @brief 
@@ -41,7 +42,9 @@ class kmer_multipleDB {
 		kmer_multipleDB& operator=(const kmer_multipleDB&) = delete;
 		
 		void load_kmers(const uint64 &iter, const uint64 &total_iter);
-		void plot_textual_hash_map(); 
+		void plot_textual_hash_map(const std::vector<double> &phenotypes);
+		double calculate_kmer_score(my_multi_hash::iterator& it, const std::vector<double> &scores,
+		double min_in_group = 5.);
 	private:
 		std::vector<Kmer_DB> m_DBs;
 		std::vector<uint64> m_kmer_temp;

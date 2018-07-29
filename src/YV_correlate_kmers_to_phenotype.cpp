@@ -109,13 +109,14 @@ int main(int argc, char* argv[])
 		
 		// 3. test
 		double t0, t1;
-		for(uint64 i=1; i<=100; i++) {
+		size_t n_steps = 1000;
+		for(uint64 i=1; i<=n_steps; i++) {
 			t0 = get_time();
-			multiDB.load_kmers(i, 100);
+			multiDB.load_kmers(i, n_steps);
 			t1 = get_time();
-			cout << i << "\t" << (t1-t0)/60 << endl;
+			cerr << i << "\t" << (t1-t0)/60 << endl;
+			multiDB.plot_textual_hash_map(p_list.second);
 		}
-//		multiDB.plot_textual_hash_map();
 	}
     catch(exception& e) {
         cerr << "error: " << e.what() << "\n";
