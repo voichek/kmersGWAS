@@ -12,11 +12,6 @@ Kmer_DB::Kmer_DB(std::string dir_path, std::string db_name):
 {}
 
 
-bool lookup_x(const kmer_set& Set, const uint64& kmer)
-{
-	kmer_set::const_iterator it  = Set.find(kmer);
-	return (it != Set.end()); 
-}
 
 
 // go over the KMC DB and output to file only the kmers in the kmers set inputed

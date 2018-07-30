@@ -22,7 +22,7 @@ all: kmer_count_shareness YV_kmerhist YV_correlate_kmers_to_phenotype
 
 
 YV_correlate_kmers_to_phenotype: $(SRCDIR)/YV_correlate_kmers_to_phenotype.cpp $(SRCDIR)/kmer_DB.h $(SRCDIR)/kmer_DB.cpp $(OBJ_KMC) $(OBJ_YV)
-	$(CXX) $(OBJ_KMC) $(OBJ_YV) $(SRCDIR)/YV_correlate_kmers_to_phenotype.cpp  -o $(BINDIR)/YV_correlate_kmers_to_phenotype $(CPPFLAGS) $(LDFLAGS)
+	$(CXX) $(OBJ_KMC) $(OBJ_YV) $(SRCDIR)/YV_correlate_kmers_to_phenotype.cpp $(INCLUDEDIR)/fisher-exact/kfunc.c -o $(BINDIR)/YV_correlate_kmers_to_phenotype $(CPPFLAGS) $(LDFLAGS)
 	
 YV_kmer_intersect_and_sort: $(SRCDIR)/YV_kmer_intersect_and_sort.cpp $(SRCDIR)/kmer_DB.h $(SRCDIR)/kmer_DB.cpp $(OBJ_KMC) 
 	$(CXX) $(OBJ_KMC) $(SRCDIR)/YV_kmer_intersect_and_sort.cpp $(SRCDIR)/kmer_DB.cpp -o $(BINDIR)/YV_kmer_intersect_and_sort $(CPPFLAGS) 
@@ -33,7 +33,10 @@ YV_kmerhist: $(SRCDIR)/YV_kmerhist.cpp $(SRCDIR)/kmer_DB.h $(SRCDIR)/kmer_DB.cpp
 kmer_count_shareness: $(SRCDIR)/kmer_count_shareness.cpp $(SRCDIR)/kmer_general.h  $(OBJ_KMC) 
 	$(CXX) $(OBJ_KMC) $(SRCDIR)/kmer_count_shareness.cpp -o $(BINDIR)/kmer_count_shareness $(CPPFLAGS) 
 
-$(BUILDIR)/kmer_multipleDB.o: $(SRCDIR)/kmer_multipleDB.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_multipleDB.h  $(OBJ_KMC) $(OBJ_YV) 
+$(BUILDIR)/fisher_exact.o: 
+	$(CXX) $(INCLUDEDIR)/fisher-exact/kfunc.c -o $(BUILDIR)/fisher_exact.o $(CPPFLAGS)
+
+$(BUILDIR)/kmer_multipleDB.o: $(SRCDIR)/kmer_multipleDB.cpp $(SRCDIR)/kmer_general.h $(SRCDIR)/kmer_multipleDB.h  $(OBJ_KMC) $(BUILDIR)/kmer_DB.o 
 	$(CXX) -c $(SRCDIR)/kmer_multipleDB.cpp -o $(BUILDIR)/kmer_multipleDB.o $(CPPFLAGS) 
 
 $(BUILDIR)/mmer.o: 

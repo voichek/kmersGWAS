@@ -115,7 +115,7 @@ int main(int argc, char* argv[])
 			multiDB.load_kmers(i, n_steps);
 			t1 = get_time();
 			cerr << i << "\t" << (t1-t0)/60 << endl;
-			multiDB.plot_textual_hash_map(p_list.second);
+	//		multiDB.plot_textual_hash_map(p_list.second, 5);
 		}
 	}
     catch(exception& e) {
@@ -127,3 +127,17 @@ int main(int argc, char* argv[])
     }
     return 0;
 }
+
+
+//Use case 1:
+//Input: User upload N phenotypes each one for a subset of the 1135 genomes
+//Proccessing: Program loads each time % of all kmers, then an association score is calculated 
+//for each k-mer to all phenotypes (this stage should run in parallel)
+//association to k-mers is save in heaps (one for phenotype)
+//when finished going over all k-mers all k-mers are outputed to files
+//
+//Use case 2:
+//Input: a set of k-mers and accessions
+//output: output the presence absence of each k-mer over these accession
+//outputing needs to be able to output in a plink file
+//

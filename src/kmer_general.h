@@ -44,6 +44,23 @@ inline std::vector<std::string> read_accession_db_list(char *filename) {
 	return res;
 }
 
+///
+/// @brief  transform a bit representation to bp representation
+/// @param  
+/// @return 
+///
+inline std::string bits2kmer31(uint64 w) {
+	const static char dict_bp[] = {'A','C','G','T'};
+	const static uint64 mask2bits = 0x0000000000000003;
+
+	std::string res(31,'X');
+	for(std::size_t i=0; i<31; i++) {
+		res[i] = dict_bp[w & mask2bits];
+		w = (w>>2);
+	}
+	return res;
+}
+
 inline double get_time(void)
 {
 	struct timeval tv;
@@ -61,6 +78,13 @@ class CKmerAPI_YV: public CKmerAPI {
 			cerr << "no_of_rows = " <<  no_of_rows << endl;				// A number of 64-bits words allocated for kmer_data 	
 		}
 };
+
+
+inline bool lookup_x(const kmer_set& Set, const uint64& kmer)
+{
+	kmer_set::const_iterator it  = Set.find(kmer);
+	return (it != Set.end()); 
+}
 
 
 #endif
