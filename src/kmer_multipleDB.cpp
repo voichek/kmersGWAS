@@ -100,11 +100,10 @@ void kmer_multipleDB::load_kmers(const uint64 &iter, const uint64 &total_iter, c
 		array<uint64, WORD64HASHT> new_bits;
 		for(size_t i=0; i<WORD64HASHT; i++) new_bits[i] = 0ull;
 		new_bits[hashmap_i] = or_val;
-		
+
 		// Reading new-kmers from file
 		m_DBs[acc_i].read_sorted_kmers(m_kmer_temp, current_threshold); // m_kmer_temp is emptied in func'
-		if(set_kmers.size() == 0) { cerr << "no use of kmer set!" << endl; 
-		} else {
+		if(set_kmers.size() != 0) { 
 			cerr << "using a kmer set! " << endl;
 			cerr << "we have " << m_kmer_temp.size() << " kmers";
 			filter_kmers_to_set(m_kmer_temp, set_kmers); // need to implement this
@@ -218,11 +217,11 @@ void kmer_multipleDB::output_plink_bed_file(const std::string &base_name) const 
 			for(size_t bi=0; bi<16; bi++) { // every word is 64 accessions (16*4) every 4 accessions is a byte
 				b = (w&1);
 				w >>= 1;
-				b ^= ((w&1)<<3);
+				b ^= ((w&1)<<2);
 				w >>= 1;
-				b ^= ((w&1)<<5);
+				b ^= ((w&1)<<4);
 				w >>= 1;
-				b ^= ((w&1)<<7);
+				b ^= ((w&1)<<6);
 				b |= (b<<1);
 				w >>= 1;
 				f_bed << b;
@@ -366,7 +365,9 @@ double kmer_multipleDB::calculate_kmer_score(
 ///
 kmer_heap::kmer_heap(size_t max_results):
 	m_n_res(max_results),
-	m_best_kmers() {
+	m_best_kmers(),
+	cnt_kmers(0),
+	cnt_pops(0) {
 	}
 
 
@@ -377,11 +378,13 @@ kmer_heap::kmer_heap(size_t max_results):
 ///
 void kmer_heap::add_kmer(const uint64 &k, const double &score) {
 	const static cmp_second compare_func;
+	cnt_kmers++;
 	if(m_best_kmers.size() < m_n_res) {
 		m_best_kmers.push(kmer_score(k, score));
 	} else {
 		kmer_score new_res(k, score);
-		if(compare_func(m_best_kmers.top(), new_res)) {
+		if(compare_func(new_res, m_best_kmers.top())) {
+			cnt_pops++;
 			m_best_kmers.pop();
 			m_best_kmers.push(new_res);
 		}

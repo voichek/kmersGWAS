@@ -60,7 +60,7 @@ class kmer_multipleDB {
 			{load_kmers(iter, total_iter, kmer_set());}
 		inline void load_kmers() {load_kmers(1ull,1ull);} // load all k-mers in file
 		inline void load_kmers(const kmer_set &set_kmers_to_use)
-			{load_kmers(1ull, 1ull, set_kmers_to_use);}// load all k-mers in file part of the input kmer set
+		{load_kmers(1ull, 1ull, set_kmers_to_use);}// load all k-mers in file part of the input kmer set
 
 		void output_kmers_textual() const; // output all k-mers found in the hash to stdout
 		void output_kmers_binary(const std::string &filename) const;
@@ -75,15 +75,15 @@ class kmer_multipleDB {
 		// Categorical phenotype (e.g resistence yes/no)
 		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<size_t> &scores, 
 				const std::vector<std::string> &names_scores) const;
-		
-		
+
+
 		inline const std::vector<std::string> get_dbs_names() 
 		{ return m_db_names; }	// return the list of db names in this class
 
 		// return the indices of DB names inserted in the class DBs
 		std::vector<std::size_t> get_dbs_indices(const std::vector<std::string> &names) const;
-	
 
+		inline std::size_t get_hashtable_size() const {return m_kmers_pa.size();}
 	private:                                
 		std::vector<Kmer_DB> m_DBs; // handles to the k-mer files
 		std::vector<std::string> m_db_names; // names of the used DBs (accession indices)
@@ -117,7 +117,7 @@ typedef std::pair<uint64, double> kmer_score;
 struct cmp_second
 {
 	inline bool operator() (const kmer_score& left, const kmer_score& right) const
-	{return (left.second*left.second) < (right.second*right.second);} 
+	{return (left.second*left.second) > (right.second*right.second);} 
 };
 
 typedef std::priority_queue<kmer_score, std::vector<kmer_score>, cmp_second> kmer_score_priority_queue;
@@ -134,10 +134,13 @@ class kmer_heap {
 		void output_to_file_with_scores(const std::string &filename) const;
 		// it would be nice to some how create a histogram of all the scores along the way...
 		// (not only the ones we keep)
+		void plot_stat() const { std::cerr << "status: kmers = " << cnt_kmers << " pops = " << cnt_pops << endl;}
 	private:
 		std::size_t m_n_res;
 		kmer_score_priority_queue m_best_kmers; // heap that will contain the scores
-//		std::priority_queue<kmer_score, std::vector<kmer_score>, cmp_second> m_best_kmers;
+		//		std::priority_queue<kmer_score, std::vector<kmer_score>, cmp_second> m_best_kmers;
+		size_t cnt_kmers;
+		size_t cnt_pops;		
 };
 
 #endif

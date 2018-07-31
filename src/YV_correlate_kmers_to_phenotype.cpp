@@ -72,60 +72,73 @@ int main(int argc, char* argv[])
 	/* Loading the user defined parameters */
 	try {
 		/* Define the input params */
-        po::options_description desc("Allowed options");
-        desc.add_options()
-            ("help", "produce help message")
-            ("phenotype_file,p", po::value<string>(), "path to the phenotype file")
-            ("DBs_path,d", po::value<string>()->default_value("/tmp/global2/yvoichek/kmer_counts/"), 
+		po::options_description desc("Allowed options");
+		desc.add_options()
+			("help", "produce help message")
+			("phenotype_file,p", po::value<string>(), "path to the phenotype file")
+			("DBs_path,d", po::value<string>()->default_value("/tmp/global2/yvoichek/kmer_counts/"), 
 			 "path of the k-mer DBS")
-            ("kmers_file", po::value<string>()->default_value("order_kmers_appear_more_than_once"), 
+			("kmers_file", po::value<string>()->default_value("order_kmers_appear_more_than_once"), 
 			 "path of the k-mer DBS")
-        ;
+			;
 		/* parse the command line */
-        po::variables_map vm;        
-        po::store(po::parse_command_line(argc, argv, desc), vm);
-        po::notify(vm);    
-		
-		/* Output help funciton */
-        if (vm.count("help")) {
-            cout << desc << "\n";
-            return 0;
-        }
+		po::variables_map vm;        
+		po::store(po::parse_command_line(argc, argv, desc), vm);
+		po::notify(vm);    
 
-        if (vm.count("phenotype_file")) {
-            cerr << "phenotype file: " 
-                 << vm["phenotype_file"].as<string>() << ".\n";
-        } else {
-            cout << "Need to specify the phenotype file\n";
+		/* Output help funciton */
+		if (vm.count("help")) {
+			cout << desc << "\n";
+			return 0;
+		}
+
+		if (vm.count("phenotype_file")) {
+			cerr << "phenotype file: " 
+				<< vm["phenotype_file"].as<string>() << ".\n";
+		} else {
+			cout << "Need to specify the phenotype file\n";
 			return 1;
-        }
-		
+		}
+
 		/***************************************************************************************************/
 		// 1. Loading the phenotype (also include the list of needed accessions)
 		phenotype_list p_list = load_phenotypes_file(vm["phenotype_file"].as<string>());
 
 		// 2. Load all accessions data to a combine dataset
 		kmer_multipleDB multiDB(vm["DBs_path"].as<string>(), p_list.first, vm["kmers_file"].as<string>());    
+	//	kmer_heap k_heap(1000000); // create heap of size 100K
+	//	// 3. test
+	//	double t0, t1;
+	//	size_t n_steps = 100;
+	//	for(uint64 i=1; i<=n_steps; i++) {
+	//		t0 = get_time();
+	//		multiDB.load_kmers(i, n_steps);
+	//		t1 = get_time();
+	//		cerr << i << "\t" << (t1-t0)/60 << endl;
+	//		multiDB.add_kmers_to_heap(k_heap, p_list.second, p_list.first);
+	//		k_heap.plot_stat();
+	//		//		multiDB.plot_textual_hash_map(p_list.second, 5);
+	//	}
+	//	k_heap.output_to_file_with_scores("./temp_check1.bin");
 		
-		// 3. test
-		double t0, t1;
-		size_t n_steps = 1000;
-		for(uint64 i=1; i<=n_steps; i++) {
-			t0 = get_time();
-			multiDB.load_kmers(i, n_steps);
-			t1 = get_time();
-			cerr << i << "\t" << (t1-t0)/60 << endl;
-	//		multiDB.plot_textual_hash_map(p_list.second, 5);
-		}
+
+		kmer_set set_of_enriched = load_kmer_and_score_raw_file("/ebio/abt6_projects9/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/temp_check1.bin");
+		multiDB.load_kmers(set_of_enriched);
+		cerr << "loaded kmers enriched (hashtable size = " << multiDB.get_hashtable_size() << ")" << endl;
+		multiDB.output_plink_bed_file("plink_test1");
+		multiDB.output_kmers_textual();
+
+
+	
 	}
-    catch(exception& e) {
-        cerr << "error: " << e.what() << "\n";
-        return 1;
-    }
-    catch(...) {
-        cerr << "Exception of unknown type!\n";
-    }
-    return 0;
+	catch(exception& e) {
+		cerr << "error: " << e.what() << "\n";
+		return 1;
+	}
+	catch(...) {
+		cerr << "Exception of unknown type!\n";
+	}
+	return 0;
 }
 
 

@@ -55,7 +55,7 @@ inline std::string bits2kmer31(uint64 w) {
 
 	std::string res(31,'X');
 	for(std::size_t i=0; i<31; i++) {
-		res[i] = dict_bp[w & mask2bits];
+		res[30-i] = dict_bp[w & mask2bits];
 		w = (w>>2);
 	}
 	return res;
@@ -86,6 +86,46 @@ inline bool lookup_x(const kmer_set& Set, const uint64& kmer)
 	return (it != Set.end()); 
 }
 
+inline kmer_set load_kmer_raw_file(std::string filename, std::size_t set_initial_size = 100000) {
+	kmer_set kmer_list_to_use(set_initial_size);
+	kmer_list_to_use.set_empty_key(-1); // need to define empty value for google dense hash table
+
+	ifstream kmer_file(filename, std::ifstream::binary);
+	if(kmer_file) { // if file could be open
+		kmer_file.seekg(0, kmer_file.end); // 
+		uint64 kmers_in_file = (kmer_file.tellg()) >> 3;
+		kmer_file.seekg(0, kmer_file.beg);
+		uint64 kmer_uint;
+		for(uint64 i=0; i<(kmers_in_file); i++) {
+			kmer_file.read(reinterpret_cast<char *>(&kmer_uint), sizeof(kmer_uint));
+			kmer_list_to_use.insert(kmer_uint);
+		}
+		kmer_file.close();
+	}
+	return kmer_list_to_use;
+}
+
+inline kmer_set load_kmer_and_score_raw_file(std::string filename, std::size_t set_initial_size = 100000) {
+	kmer_set kmer_list_to_use(set_initial_size);
+	kmer_list_to_use.set_empty_key(-1); // need to define empty value for google dense hash table
+
+	ifstream kmer_file(filename, std::ifstream::binary);
+	if(kmer_file) { // if file could be open
+		kmer_file.seekg(0, kmer_file.end); // 
+		uint64 kmers_in_file = (kmer_file.tellg()) >> (3+1);
+		kmer_file.seekg(0, kmer_file.beg);
+		uint64 kmer_uint;
+		double score;
+		for(uint64 i=0; i<(kmers_in_file); i++) {
+			kmer_file.read(reinterpret_cast<char *>(&kmer_uint), sizeof(kmer_uint));
+			kmer_file.read(reinterpret_cast<char *>(&score), sizeof(score));
+			kmer_list_to_use.insert(kmer_uint);
+		}
+		kmer_file.close();
+	}
+	std::cerr << "loaded set of k-mers #" << kmer_list_to_use.size() << std::endl;
+	return kmer_list_to_use;
+}
 
 #endif
 
