@@ -50,8 +50,6 @@ kmer_multipleDB::kmer_multipleDB(
 		m_DBs.emplace_back(path_to_DBs +"/" + m_db_names[i], m_db_names[i]);
 		m_DBs.back().open_sorted_kmer_file(sorted_kmer_fn);
 	}
-	if(m_verbose) 
-		cerr << "We have " << m_accessions << " accessions and " << m_kmers_pa.size() << " hash-map\n";
 
 	// Needs to define a "delete" key which is a non-possible input (our k-mer will be max 62 bits)
 	m_kmers_pa.set_empty_key(0xFFFFFFFFFFFFFFFF);
@@ -88,6 +86,7 @@ void filter_kmers_to_set(std::vector<uint64> &kmers, const kmer_set &set_kmers) 
 void kmer_multipleDB::load_kmers(const uint64 &iter, const uint64 &total_iter, const kmer_set &set_kmers) {
 	// as k-mers are 31 bp - the largest possible value is 0011111111...1111
 	uint64 current_threshold = ((0x3FFFFFFFFFFFFFFF / total_iter)+1)*iter;
+	cerr << iter << " / " << total_iter << "\t:\t" << bitset<64>(current_threshold) << endl;
 	m_kmers_pa.clear();
 	my_multi_hash::iterator it_hash;
 	for(size_t acc_i = 0; acc_i < m_accessions; ++acc_i) {
@@ -104,10 +103,7 @@ void kmer_multipleDB::load_kmers(const uint64 &iter, const uint64 &total_iter, c
 		// Reading new-kmers from file
 		m_DBs[acc_i].read_sorted_kmers(m_kmer_temp, current_threshold); // m_kmer_temp is emptied in func'
 		if(set_kmers.size() != 0) { 
-			cerr << "using a kmer set! " << endl;
-			cerr << "we have " << m_kmer_temp.size() << " kmers";
 			filter_kmers_to_set(m_kmer_temp, set_kmers); // need to implement this
-			cerr << " left with: " << m_kmer_temp.size() << endl;
 		}
 
 		// adding new k-mers info
@@ -212,9 +208,10 @@ void kmer_multipleDB::output_plink_bed_file(const std::string &base_name) const 
 	uint64 w;
 	for(my_multi_hash::const_iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) {		
 		f_bim << "0\t" << bits2kmer31(it->first) << "\t0\t0\t0\t1\n"; 
+		size_t acc_index = 0;
 		for(size_t i=0; i<m_hash_words; i++) {
 			w = it->second[i];
-			for(size_t bi=0; bi<16; bi++) { // every word is 64 accessions (16*4) every 4 accessions is a byte
+			for(size_t bi=0; (bi<16) && (acc_index < m_accessions); bi++) { // every word is 64 accessions (16*4) every 4 accessions is a byte
 				b = (w&1);
 				w >>= 1;
 				b ^= ((w&1)<<2);
@@ -225,6 +222,7 @@ void kmer_multipleDB::output_plink_bed_file(const std::string &base_name) const 
 				b |= (b<<1);
 				w >>= 1;
 				f_bed << b;
+				acc_index += 4;
 			}
 		}
 	}
@@ -367,7 +365,8 @@ kmer_heap::kmer_heap(size_t max_results):
 	m_n_res(max_results),
 	m_best_kmers(),
 	cnt_kmers(0),
-	cnt_pops(0) {
+	cnt_pops(0),
+	cnt_push(0) {
 	}
 
 
@@ -381,10 +380,12 @@ void kmer_heap::add_kmer(const uint64 &k, const double &score) {
 	cnt_kmers++;
 	if(m_best_kmers.size() < m_n_res) {
 		m_best_kmers.push(kmer_score(k, score));
+		cnt_push++;
 	} else {
 		kmer_score new_res(k, score);
 		if(compare_func(new_res, m_best_kmers.top())) {
 			cnt_pops++;
+			cnt_push++;
 			m_best_kmers.pop();
 			m_best_kmers.push(new_res);
 		}
@@ -422,4 +423,13 @@ void kmer_heap::output_to_file_with_scores(const std::string &filename) const {
 		temp_queue.pop();
 	}
 	of.close();
+}
+
+
+void kmer_heap::plot_stat() const { 
+	std::cerr << "[heap-stat] max\t" << m_n_res <<
+		"\tsize\t" << m_best_kmers.size() <<
+		"\tkmers\t" << cnt_kmers <<
+		"\tpops\t" << cnt_pops <<
+		"\tpush\t" << cnt_push << endl; 
 }

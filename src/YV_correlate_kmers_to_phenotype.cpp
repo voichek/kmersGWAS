@@ -76,6 +76,8 @@ int main(int argc, char* argv[])
 		desc.add_options()
 			("help", "produce help message")
 			("phenotype_file,p", po::value<string>(), "path to the phenotype file")
+			("base_name,b", po::value<string>(), "base name to use for all files")
+			("output_dir,o", po::value<string>()->default_value("."), "where to save output files")
 			("DBs_path,d", po::value<string>()->default_value("/tmp/global2/yvoichek/kmer_counts/"), 
 			 "path of the k-mer DBS")
 			("kmers_file", po::value<string>()->default_value("order_kmers_appear_more_than_once"), 
@@ -99,6 +101,14 @@ int main(int argc, char* argv[])
 			cout << "Need to specify the phenotype file\n";
 			return 1;
 		}
+		
+		if (vm.count("base_name")) {
+			cerr << "base name: " 
+				<< vm["base_name"].as<string>() << ".\n";
+		} else {
+			cout << "Need to specify the base name\n";
+			return 1;
+		}
 
 		/***************************************************************************************************/
 		// 1. Loading the phenotype (also include the list of needed accessions)
@@ -106,30 +116,30 @@ int main(int argc, char* argv[])
 
 		// 2. Load all accessions data to a combine dataset
 		kmer_multipleDB multiDB(vm["DBs_path"].as<string>(), p_list.first, vm["kmers_file"].as<string>());    
-	//	kmer_heap k_heap(1000000); // create heap of size 100K
-	//	// 3. test
-	//	double t0, t1;
-	//	size_t n_steps = 100;
-	//	for(uint64 i=1; i<=n_steps; i++) {
-	//		t0 = get_time();
-	//		multiDB.load_kmers(i, n_steps);
-	//		t1 = get_time();
-	//		cerr << i << "\t" << (t1-t0)/60 << endl;
-	//		multiDB.add_kmers_to_heap(k_heap, p_list.second, p_list.first);
-	//		k_heap.plot_stat();
-	//		//		multiDB.plot_textual_hash_map(p_list.second, 5);
-	//	}
-	//	k_heap.output_to_file_with_scores("./temp_check1.bin");
-		
+		kmer_heap k_heap(1000000); // create heap of size 1M
+		// 3. test
+		size_t n_steps = 500;
+		for(uint64 i=1; i<=n_steps; i++) {
+			multiDB.load_kmers(i, n_steps);
+			multiDB.add_kmers_to_heap(k_heap, p_list.second, p_list.first);
+			cerr << "Iteration " << i << " out of " << n_steps << endl;
+			k_heap.plot_stat();
+		}
+		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
+		string fn_kmers = fn_base + ".best_kmers";
+		k_heap.output_to_file(fn_kmers);
+		k_heap.output_to_file_with_scores(fn_kmers + ".scores");
 
-		kmer_set set_of_enriched = load_kmer_and_score_raw_file("/ebio/abt6_projects9/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/temp_check1.bin");
-		multiDB.load_kmers(set_of_enriched);
-		cerr << "loaded kmers enriched (hashtable size = " << multiDB.get_hashtable_size() << ")" << endl;
-		multiDB.output_plink_bed_file("plink_test1");
-		multiDB.output_kmers_textual();
+		kmer_set set_of_enriched = load_kmer_raw_file(fn_kmers);
+		kmer_multipleDB multiDB_step2(vm["DBs_path"].as<string>(), p_list.first, vm["kmers_file"].as<string>());    
+		multiDB_step2.load_kmers(set_of_enriched);
+		cerr << "loaded kmers enriched (hashtable size = " << multiDB_step2.get_hashtable_size() << ")" << endl;
+
+		multiDB_step2.output_plink_bed_file(fn_base);
+		//		multiDB.output_kmers_textual();
 
 
-	
+
 	}
 	catch(exception& e) {
 		cerr << "error: " << e.what() << "\n";

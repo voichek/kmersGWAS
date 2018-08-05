@@ -134,13 +134,14 @@ class kmer_heap {
 		void output_to_file_with_scores(const std::string &filename) const;
 		// it would be nice to some how create a histogram of all the scores along the way...
 		// (not only the ones we keep)
-		void plot_stat() const { std::cerr << "status: kmers = " << cnt_kmers << " pops = " << cnt_pops << endl;}
+		void plot_stat() const; 
 	private:
 		std::size_t m_n_res;
 		kmer_score_priority_queue m_best_kmers; // heap that will contain the scores
 		//		std::priority_queue<kmer_score, std::vector<kmer_score>, cmp_second> m_best_kmers;
 		size_t cnt_kmers;
-		size_t cnt_pops;		
+		size_t cnt_pops;
+		size_t cnt_push;	
 };
 
 #endif

@@ -19,8 +19,10 @@
 ## GNU General Public License as published by the Free Software Foundation.
 ## =====================================================================================
 ## 
+
 import os
 from glob import glob
+import sys
 gemma_path = "/ebio/abt6/yvoichek/smallproj/prefix/bin/gemma"
 def get_file_type_in_dir(dir_name, type_suffix):
     fns = glob("%s/*.%s" % (dir_name, type_suffix))
@@ -50,74 +52,94 @@ kinship_matrix = base_path + "tests/build_kinship_matrix_of_all_1001G/kinshipnam
 ## to have the order of accession indices
 original_fam = base_path + "tests/build_kinship_matrix_of_all_1001G/1001genomes_snp-short-indel_only_ACGTN.vcf.plink.fam.original"
 
+YV_corr = base_path + "bin/YV_correlate_kmers_to_phenotype"
+def main():
+    ## Specific run parameters:
+    name_run = sys.argv[1]
+    data_dir = base_path + "tests/run_gemma/%s/" % name_run
+    os.system("mkdir %s" % data_dir)
+    print "working on: ", data_dir
+    
+    print "Copying phenotype data to directory"
+    orig_phenotype_data = glob(base_path + "/tests/phenotype_example/" + name_run + ".pheno.int_1001g")
+    if len(orig_phenotype_data) != 1: # has to be zero as glob was specific
+        raise Exception("Couldn't find phenotype file")
+    os.system("cp %s %s" % (orig_phenotype_data[0], data_dir))
+    
+    pheno_fn = get_file_type_in_dir(data_dir, "int_1001g")
+    print "run correlation with k-mers"
 
-## Specific run parameters:
-data_dir = base_path + "tests/run_gemma/43_avrRpt2/"
-pheno_fn = get_file_type_in_dir(data_dir, "int_1001g")
-bed_fn   = get_file_type_in_dir(data_dir, "bed")
-bim_fn   = get_file_type_in_dir(data_dir, "bim")
-base_name = bim_fn[:-4]
-fam_fn   = base_name + ".fam"
+    cur_cmd = "%s -p %s -b %s -o %s"  % (YV_corr, pheno_fn, name_run, data_dir)
+    print cur_cmd
+    os.system(cur_cmd)
 
-# new file for kinship matrix
-kinship_fn = data_dir + "kinship_matrix"
-## create a sub matrix of the relevant accessions
-orig_acc = get_column(original_fam, 0, " ")
-current_acc = get_column(pheno_fn, 0)[1:]
-print "We have %d accession in the kinship matrix" % len(orig_acc)
-print "We have %d in this phenotype" % len(current_acc)
+    bed_fn   = get_file_type_in_dir(data_dir, "bed")
+    bim_fn   = get_file_type_in_dir(data_dir, "bim")
+    base_name = bim_fn[:-4]
+    fam_fn   = base_name + ".fam"
+    
+    # new file for kinship matrix
+    kinship_fn = data_dir + "kinship_matrix"
+    ## create a sub matrix of the relevant accessions
+    orig_acc = get_column(original_fam, 0, " ")
+    current_acc = get_column(pheno_fn, 0)[1:]
+    print "We have %d accession in the kinship matrix" % len(orig_acc)
+    print "We have %d in this phenotype" % len(current_acc)
+    
+    if len(current_acc) != len([x for x in current_acc if x in orig_acc]):
+        raise Exception("Not all the accession in the phenotype also found in the kinship matrix")
+    
+    
+    index_to_cut = [] ## Finding the indices of current accessions in the general list
+    for i in range(len(current_acc)):
+        index_to_cut.append(orig_acc.index(current_acc[i]))
+    
+    
+    create_new_relatedness_matrix(kinship_matrix, kinship_fn, index_to_cut)
+    
+    # building the fam file to run gemma
+    cur_cmd = r"""cat %s | tail -n +2 | awk '{print $1 " " $1 " 0 0 0 " $2}' > %s""" % (pheno_fn, fam_fn)
+    print "run cmd: ", cur_cmd 
+    os.system(cur_cmd)
+    
+    # run gemma on all k-mers
+    cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s" % \
+            (gemma_path, base_name,  kinship_fn, data_dir + "output", "kmers")
+    print "run cmd: ", cur_cmd
+    os.system(cur_cmd)
+    
+    # Organizing files to run gemma using the 1001g snps
+    full_matrix_path = "/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/tests/build_kinship_matrix_of_all_1001G/"
+    bed_1135_fn = full_matrix_path + "1001genomes_snp-short-indel_only_ACGTN.vcf.plink.bed"
+    bim_1135_fn = full_matrix_path + "1001genomes_snp-short-indel_only_ACGTN.vcf.plink.bim"
+    
+    new_1135 = "1135genomes.plink"
+    new_bed_1135 = data_dir + new_1135 + ".bed"
+    new_bim_1135 = data_dir + new_1135 + ".bim"
+    new_fam_1135 = data_dir + new_1135 + ".fam"
+    
+    os.system("cp %s %s" % (bed_1135_fn, new_bed_1135))
+    os.system("cp %s %s" % (bim_1135_fn, new_bim_1135))
+    
+    #building a fam file to run vs. all snps (so it will be expanded to the 1135 format)
+    orig_fam_acc = get_column(original_fam, 0, " ")
+    cur_fam_acc = get_column(fam_fn, 0, " ")
+    cur_fam_pheno = get_column(fam_fn,5, " ")
+    fout = file(new_fam_1135, "w")
+    for (i, acc_n) in enumerate(orig_fam_acc):
+        if acc_n in cur_fam_acc:
+            fout.write("%s %s 0 0 0 %s\n" % (acc_n, acc_n, cur_fam_pheno[cur_fam_acc.index(acc_n)]))
+        else:
+            fout.write("%s %s 0 0 0 -9\n" % (acc_n, acc_n))
+    fout.close()
+    
+    # run gemma (using the full kinship matrix ofcourse...)
+    cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s" % \
+            (gemma_path, data_dir + new_1135,  kinship_matrix, data_dir + "output", "snp_1135G")
+    print "run cmd: ", cur_cmd
+    os.system(cur_cmd)
+    
+    # should delete coppied files in the end (!)
 
-if len(current_acc) != len([x for x in current_acc if x in orig_acc]):
-    raise Exception("Not all the accession in the phenotype also found in the kinship matrix")
-
-
-index_to_cut = [] ## Finding the indices of current accessions in the general list
-for i in range(len(current_acc)):
-    index_to_cut.append(orig_acc.index(current_acc[i]))
-
-
-create_new_relatedness_matrix(kinship_matrix, kinship_fn, index_to_cut)
-
-# building the fam file to run gemma
-cur_cmd = r"""cat %s | tail -n +2 | awk '{print $1 " " $1 " 0 0 0 " $2}' > %s""" % (pheno_fn, fam_fn)
-print "run cmd: ", cur_cmd 
-os.system(cur_cmd)
-
-# run gemma on all k-mers
-cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s &" % \
-        (gemma_path, base_name,  kinship_fn, data_dir + "output", "kmers")
-print "run cmd: ", cur_cmd
-os.system(cur_cmd)
-
-# Organizing files to run gemma using the 1001g snps
-full_matrix_path = "/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/tests/build_kinship_matrix_of_all_1001G/"
-bed_1135_fn = full_matrix_path + "1001genomes_snp-short-indel_only_ACGTN.vcf.plink.bed"
-bim_1135_fn = full_matrix_path + "1001genomes_snp-short-indel_only_ACGTN.vcf.plink.bim"
-
-new_1135 = "1135genomes.plink"
-new_bed_1135 = data_dir + new_1135 + ".bed"
-new_bim_1135 = data_dir + new_1135 + ".bim"
-new_fam_1135 = data_dir + new_1135 + ".fam"
-
-os.system("cp %s %s" % (bed_1135_fn, new_bed_1135))
-os.system("cp %s %s" % (bim_1135_fn, new_bim_1135))
-
-#building a fam file to run vs. all snps (so it will be expanded to the 1135 format)
-orig_fam_acc = get_column(original_fam, 0, " ")
-cur_fam_acc = get_column(fam_fn, 0, " ")
-cur_fam_pheno = get_column(fam_fn,5, " ")
-fout = file(new_fam_1135, "w")
-for (i, acc_n) in enumerate(orig_fam_acc):
-    if acc_n in cur_fam_acc:
-        fout.write("%s %s 0 0 0 %s\n" % (acc_n, acc_n, cur_fam_pheno[cur_fam_acc.index(acc_n)]))
-    else:
-        fout.write("%s %s 0 0 0 -9\n" % (acc_n, acc_n))
-fout.close()
-
-# run gemma (using the full kinship matrix ofcourse...)
-cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s" % \
-        (gemma_path, data_dir + new_1135,  kinship_matrix, data_dir + "output", "snp_1135G")
-print "run cmd: ", cur_cmd
-os.system(cur_cmd)
-
-# should delete coppied files in the end (!)
+if __name__ == "__main__":
+    main()
