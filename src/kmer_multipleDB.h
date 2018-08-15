@@ -31,7 +31,7 @@
 
 typedef google::dense_hash_map<uint64, std::array<uint64, WORD64HASHT>, Hash64> my_multi_hash; 
 class kmer_heap;
-
+struct bedbim_handle; 
 /**
  * @class kmer_multipleDB
  * @brief class holds the information of presence/absence of k-mers
@@ -51,13 +51,10 @@ class kmer_multipleDB {
 
 		~kmer_multipleDB() {} // desctructor (Dtor of kmer_DB will close the open files)
 
-
-//		void load_kmers(const uint64 &iter, const uint64 &total_iter); // load k-mers from sorted files
 		// load k-mers from sorted files part of the kmer set
 		void load_kmers(const uint64 &iter, const uint64 &total_iter, const kmer_set &set_kmers_to_use);
-		
 		inline void load_kmers(const uint64 &iter, const uint64 &total_iter)
-			{load_kmers(iter, total_iter, kmer_set());}
+		{load_kmers(iter, total_iter, kmer_set());}
 		inline void load_kmers() {load_kmers(1ull,1ull);} // load all k-mers in file
 		inline void load_kmers(const kmer_set &set_kmers_to_use)
 		{load_kmers(1ull, 1ull, set_kmers_to_use);}// load all k-mers in file part of the input kmer set
@@ -67,12 +64,14 @@ class kmer_multipleDB {
 
 		// will output a plink bed file along a binary with kmers in the same order
 		void output_plink_bed_file(const std::string &base_name) const;
-
+		void output_plink_bed_file(bedbim_handle &f, const kmer_set &set_kmers) const;
+		inline void output_plink_bed_file(bedbim_handle &f) const 
+		{output_plink_bed_file(f, kmer_set());}
 
 		// Continuous phenotype (e.g flowering time 1,2,3..100)
 		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<double> &scores, 
 				const std::vector<std::string> &names_scores) const;
-		// Categorical phenotype (e.g resistence yes/no)
+		// Categorical phenotype (e.g resistence yes/no) - never debugged!
 		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<size_t> &scores, 
 				const std::vector<std::string> &names_scores) const;
 
@@ -84,8 +83,11 @@ class kmer_multipleDB {
 		std::vector<std::size_t> get_dbs_indices(const std::vector<std::string> &names) const;
 
 		inline std::size_t get_hashtable_size() const {return m_kmers_pa.size();}
+
+		void clear_hashtable() {m_kmers_pa.clear();} // clear hashtable
+
 	private:                                
-		std::vector<Kmer_DB> m_DBs; // handles to the k-mer files
+		std::vector<kmer_DB> m_DBs; // handles to the k-mer files
 		std::vector<std::string> m_db_names; // names of the used DBs (accession indices)
 		std::vector<uint64> m_kmer_temp; // temp vector to hold read k-mers
 		std::size_t m_accessions; // Number of accessions
@@ -134,7 +136,9 @@ class kmer_heap {
 		void output_to_file_with_scores(const std::string &filename) const;
 		// it would be nice to some how create a histogram of all the scores along the way...
 		// (not only the ones we keep)
-		void plot_stat() const; 
+		void plot_stat() const;
+		inline void empty_heap() {m_best_kmers = kmer_score_priority_queue();} // empty heap content
+		kmer_set get_kmer_set() const;	
 	private:
 		std::size_t m_n_res;
 		kmer_score_priority_queue m_best_kmers; // heap that will contain the scores
@@ -142,6 +146,25 @@ class kmer_heap {
 		size_t cnt_kmers;
 		size_t cnt_pops;
 		size_t cnt_push;	
+};
+
+
+
+/**
+ * @struct bedbim_handle
+ * @brief  holds handles to a bed & bim files (and write the header of the bed file)
+ */
+struct bedbim_handle {
+	bedbim_handle(const std::string &base_name):
+		f_bed(base_name + ".bed",ios::binary),
+		f_bim(base_name + ".bim", ios::out) 
+	{ f_bed << (char)0x6C << (char)(0x1B) << (char)(0x01);} // header of bed file
+	~bedbim_handle() {close();}
+	bedbim_handle(bedbim_handle&& o) = default;
+	void close();
+
+	ofstream f_bed;
+	ofstream f_bim;
 };
 
 #endif

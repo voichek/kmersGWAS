@@ -56,7 +56,6 @@ kmer_multipleDB::kmer_multipleDB(
 }
 
 
-
 ///
 /// @brief  filter from a kmer vector only the kmers part of a given set
 /// @param  1. vector of uint64 representing k-mers and a set of kmers (hash set)
@@ -199,35 +198,37 @@ void kmer_multipleDB::output_kmers_binary(const std::string &filename) const {
 /// @param  base path to write the .bin & .bed file
 /// @return 
 /// @notes	I might need to add the logic of taking out duplicates patterns here...
-void kmer_multipleDB::output_plink_bed_file(const std::string &base_name) const  {
-	ofstream f_bed(base_name + ".bed",ios::binary);
-	ofstream f_bim(base_name + ".bim", ios::out);
-	f_bed << (char)0x6C << (char)(0x1B) << (char)(0x01); // header of bed file
+void kmer_multipleDB::output_plink_bed_file(const string &base_name) const  {
+	bedbim_handle f_handle(base_name);
+	output_plink_bed_file(f_handle);
+	f_handle.close();
+};
 
+void kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const kmer_set &set_kmers) const  {
 	unsigned char b;
 	uint64 w;
-	for(my_multi_hash::const_iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) {		
-		f_bim << "0\t" << bits2kmer31(it->first) << "\t0\t0\t0\t1\n"; 
-		size_t acc_index = 0;
-		for(size_t i=0; i<m_hash_words; i++) {
-			w = it->second[i];
-			for(size_t bi=0; (bi<16) && (acc_index < m_accessions); bi++) { // every word is 64 accessions (16*4) every 4 accessions is a byte
-				b = (w&1);
-				w >>= 1;
-				b ^= ((w&1)<<2);
-				w >>= 1;
-				b ^= ((w&1)<<4);
-				w >>= 1;
-				b ^= ((w&1)<<6);
-				b |= (b<<1);
-				w >>= 1;
-				f_bed << b;
-				acc_index += 4;
+	for(my_multi_hash::const_iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) {
+		if((set_kmers.size() == 0) || (lookup_x(set_kmers,it->first))) { // check k-mer in set (or empty set)
+			f.f_bim << "0\t" << bits2kmer31(it->first) << "\t0\t0\t0\t1\n"; 
+			size_t acc_index = 0;
+			for(size_t i=0; i<m_hash_words; i++) {
+				w = it->second[i];
+				for(size_t bi=0; (bi<16) && (acc_index < m_accessions); bi++) { // every word is 64 accessions (16*4) every 4 accessions is a byte
+					b = (w&1);
+					w >>= 1;
+					b ^= ((w&1)<<2);
+					w >>= 1;
+					b ^= ((w&1)<<4);
+					w >>= 1;
+					b ^= ((w&1)<<6);
+					b |= (b<<1);
+					w >>= 1;
+					f.f_bed << b;
+					acc_index += 4;
+				}
 			}
 		}
 	}
-	f_bed.close();
-	f_bim.close();
 }
 
 
@@ -411,8 +412,6 @@ void kmer_heap::output_to_file(const string &filename) const {
 
 ///
 /// @brief  output the k-mers with the scores to a file
-/// @param  
-/// @return 
 ///
 void kmer_heap::output_to_file_with_scores(const std::string &filename) const {
 	kmer_score_priority_queue temp_queue(m_best_kmers);
@@ -426,10 +425,33 @@ void kmer_heap::output_to_file_with_scores(const std::string &filename) const {
 }
 
 
+/// @brief  output all the k-mers in the heap
+/// @return a kmer_set with all the k-mers from the heap
+kmer_set kmer_heap::get_kmer_set() const {
+	kmer_set res;
+	res.set_empty_key(NULL_KEY); // need to define empty value for google dense hash table
+
+	kmer_score_priority_queue temp_queue(m_best_kmers);
+	while(!temp_queue.empty()) {
+		res.insert(temp_queue.top().first);
+		temp_queue.pop();
+	}
+	return res;
+}
+
+/// @bried	output the status (pop/ push/ size) of the heap to stderr
 void kmer_heap::plot_stat() const { 
 	std::cerr << "[heap-stat] max\t" << m_n_res <<
 		"\tsize\t" << m_best_kmers.size() <<
 		"\tkmers\t" << cnt_kmers <<
 		"\tpops\t" << cnt_pops <<
 		"\tpush\t" << cnt_push << endl; 
+}
+
+// Close handles of bed & bim files
+void bedbim_handle::close() {
+	if(f_bed.is_open())
+		f_bed.close();
+	if(f_bim.is_open())
+		f_bim.close();
 }

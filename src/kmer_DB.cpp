@@ -5,7 +5,7 @@ using google::dense_hash_set;
 using namespace std;
 
 
-Kmer_DB::Kmer_DB(std::string dir_path, std::string db_name):
+kmer_DB::kmer_DB(std::string dir_path, std::string db_name):
 	m_db_name(db_name),
 	m_dir_path(dir_path),
 	m_sorted_kmers_f()
@@ -15,7 +15,7 @@ Kmer_DB::Kmer_DB(std::string dir_path, std::string db_name):
 
 
 // go over the KMC DB and output to file only the kmers in the kmers set inputed
-void Kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_name) {
+void kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_name) {
 	string output_file = m_dir_path + "/" +  file_name;
 	string output_log_file = output_file + ".log";
 
@@ -51,7 +51,7 @@ void Kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_nam
 }
 
 // Counts how many times each k-mer appeared and plot to std::cout
-vector<std::size_t> Kmer_DB::calculate_kmers_counts_histogram() {
+vector<std::size_t> kmer_DB::calculate_kmers_counts_histogram() {
 	CKMCFile kmer_database = get_KMC_handle();
 	CKmerAPI kmer_obj(KMER_LEN);
 
@@ -65,7 +65,7 @@ vector<std::size_t> Kmer_DB::calculate_kmers_counts_histogram() {
 }
 
 // get a hanle to the KMC DB to run over its k-mers 
-CKMCFile Kmer_DB::get_KMC_handle() {
+CKMCFile kmer_DB::get_KMC_handle() {
 	CKMCFile kmer_database;
 	kmer_database.OpenForListing(m_dir_path + "/" +  m_db_name);
 
@@ -73,12 +73,12 @@ CKMCFile Kmer_DB::get_KMC_handle() {
 }
 
 
-void Kmer_DB::open_sorted_kmer_file(const std::string& filename) {
+void kmer_DB::open_sorted_kmer_file(const std::string& filename) {
 	m_sorted_kmers_f.open_file(m_dir_path + "/" + filename);
 }
 
 // reads all k-mers until getting to somethreshold
-void Kmer_DB::read_sorted_kmers(std::vector<uint64> &kmers, uint64 threshold ) {
+void kmer_DB::read_sorted_kmers(std::vector<uint64> &kmers, uint64 threshold ) {
 	m_sorted_kmers_f.load_kmers_upto_x(threshold, kmers);
 }
 

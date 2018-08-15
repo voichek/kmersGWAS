@@ -19,8 +19,9 @@
 #define KMER_LEN 31
 #define WLEN 64
 #define HASH_TABLE_SIZE 1300000000
+#define NULL_KEY 0xFFFFFFFFFFFFFFFF
 
-
+// Struct: Hash for 64 bits
 struct Hash64 {
 	size_t operator()(uint64_t key) const { 
 		key ^= key >> 33;
@@ -32,41 +33,18 @@ struct Hash64 {
 	}
 };
 
+// Define my hash tables / sets
 typedef google::dense_hash_set<uint64, Hash64> kmer_set; 
 typedef google::dense_hash_map<uint64, uint64, Hash64> my_hash; 
 
-// Func: Read the list of accessions to use
-inline std::vector<std::string> read_accession_db_list(char *filename) {
-	std::ifstream fin(filename);
-	std::vector<std::string> res;
+// Struct: Holds info on k-mers KMC DB
+struct KMC_db_handle {
+	std::string dir_path;
 	std::string name;
-	while(fin >> name) {res.push_back(name);}
-	return res;
-}
+};
 
-///
-/// @brief  transform a bit representation to bp representation
-/// @param  
-/// @return 
-///
-inline std::string bits2kmer31(uint64 w) {
-	const static char dict_bp[] = {'A','C','G','T'};
-	const static uint64 mask2bits = 0x0000000000000003;
-
-	std::string res(31,'X');
-	for(std::size_t i=0; i<31; i++) {
-		res[30-i] = dict_bp[w & mask2bits];
-		w = (w>>2);
-	}
-	return res;
-}
-
-inline double get_time(void)
-{
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec + (tv.tv_usec / 1000000.0);
-}
+// Func: return the full path of a KMD db from its handle
+inline std::string KMC_db_full_path(const KMC_db_handle &h) { return h.dir_path + "/" + h.name;}
 
 class CKmerAPI_YV: public CKmerAPI {
 	public:
@@ -79,53 +57,23 @@ class CKmerAPI_YV: public CKmerAPI {
 		}
 };
 
-
+// Check if a kmer is part of set (can we make it one line?)
 inline bool lookup_x(const kmer_set& Set, const uint64& kmer)
 {
 	kmer_set::const_iterator it  = Set.find(kmer);
 	return (it != Set.end()); 
 }
 
-inline kmer_set load_kmer_raw_file(std::string filename, std::size_t set_initial_size = 100000) {
-	kmer_set kmer_list_to_use(set_initial_size);
-	kmer_list_to_use.set_empty_key(-1); // need to define empty value for google dense hash table
+// Func: Read the list of accessions to use
+std::vector<KMC_db_handle> read_accession_db_list(char *filename);
+// Func: transform a bit representation to bp representation
+std::string bits2kmer31(uint64 w); 
+// Func: Read a file with a list of k-mers (need to add prefix/header to files)
+kmer_set load_kmer_raw_file(std::string filename, std::size_t set_initial_size = 100000); 
+// Func: Read a file with a list of k-mers with scores (need to add prefix/header to files)
+kmer_set load_kmer_and_score_raw_file(std::string filename, std::size_t set_initial_size = 100000);
 
-	ifstream kmer_file(filename, std::ifstream::binary);
-	if(kmer_file) { // if file could be open
-		kmer_file.seekg(0, kmer_file.end); // 
-		uint64 kmers_in_file = (kmer_file.tellg()) >> 3;
-		kmer_file.seekg(0, kmer_file.beg);
-		uint64 kmer_uint;
-		for(uint64 i=0; i<(kmers_in_file); i++) {
-			kmer_file.read(reinterpret_cast<char *>(&kmer_uint), sizeof(kmer_uint));
-			kmer_list_to_use.insert(kmer_uint);
-		}
-		kmer_file.close();
-	}
-	return kmer_list_to_use;
-}
-
-inline kmer_set load_kmer_and_score_raw_file(std::string filename, std::size_t set_initial_size = 100000) {
-	kmer_set kmer_list_to_use(set_initial_size);
-	kmer_list_to_use.set_empty_key(-1); // need to define empty value for google dense hash table
-
-	ifstream kmer_file(filename, std::ifstream::binary);
-	if(kmer_file) { // if file could be open
-		kmer_file.seekg(0, kmer_file.end); // 
-		uint64 kmers_in_file = (kmer_file.tellg()) >> (3+1);
-		kmer_file.seekg(0, kmer_file.beg);
-		uint64 kmer_uint;
-		double score;
-		for(uint64 i=0; i<(kmers_in_file); i++) {
-			kmer_file.read(reinterpret_cast<char *>(&kmer_uint), sizeof(kmer_uint));
-			kmer_file.read(reinterpret_cast<char *>(&score), sizeof(score));
-			kmer_list_to_use.insert(kmer_uint);
-		}
-		kmer_file.close();
-	}
-	std::cerr << "loaded set of k-mers #" << kmer_list_to_use.size() << std::endl;
-	return kmer_list_to_use;
-}
+double get_time(void);
 
 #endif
 

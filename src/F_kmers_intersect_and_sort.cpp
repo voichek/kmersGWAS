@@ -1,40 +1,52 @@
+/**
+ *       @file  F_kmers_intersect_and_sort.cpp
+ *      @brief  Loading a list of k-mers and intersecting from each given KMC DB only these 
+ *      k-mers (and plotting them in a sorted order)
+ *
+ * Detailed description starts here.
+ *
+ *     @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
+ *
+ *   @internal
+ *     Created  08/14/18
+ *    Compiler  gcc/g++
+ *     Company  Max Planck Institute for Developmental Biology Dep 6
+ *   Copyright  Copyright (c) 2018, Yoav Voichek
+ *
+ * This source code is released for free distribution under the terms of the
+ * GNU General Public License as published by the Free Software Foundation.
+ * =====================================================================================
+ */
+
+#include "kmer_general.h"
 #include "kmer_DB.h"
+
 using namespace std;
 
 int main(int argc, char *argv[]) {
-	cerr << "DB list file: " << argv[1] << endl;
-	cerr << "going to run on the first: " << argv[2] << endl;
+	/* Read user input */
+	if(argc != 4) {
+		cerr << "usage: " << argv[0] << 
+			" <file with KMC DBs paths> <kmers to intersect file> <output base name>" << endl;
+		return -1;
+	}
 
-	uint64 DB_to_run = atoi(argv[2]); //the first * of accession to run on
+	cerr << "File with DBs filenames: " << argv[1] << endl;
+	cerr << "Kmers to intersect with file: " << argv[2] << endl;
+	string base_output_filename(argv[3]);
+	cerr << "Output filename: " << base_output_filename << endl;
 
-	/* Read accessions to use list */
-	vector<string> db_names = read_accession_db_list(argv[1]);
-	string dir_dbs(argv[3]);	
-
-	kmer_set kmer_list_to_use(800000000);
-	kmer_list_to_use.set_empty_key(-1); // need to define empty value for google dense hash table
-
-	double t0,t1;
-
-	ifstream kmer_file("kmers_more_than_once", std::ifstream::binary);
-	if(kmer_file) { // if file could be open
-		kmer_file.seekg(0, kmer_file.end); // 
-		uint64 kmers_in_file = (kmer_file.tellg()) >> 3;
-		kmer_file.seekg(0, kmer_file.beg);
-		uint64 kmer_uint;
-		t0 = get_time();
-		for(uint64 i=0; i<(kmers_in_file); i++) {
-			kmer_file.read(reinterpret_cast<char *>(&kmer_uint), sizeof(kmer_uint));
-			kmer_list_to_use.insert(kmer_uint);
-		}
-		kmer_file.close();
-		t1 = get_time();
-		std::cerr << "time to load: " << t1-t0 << std::endl;
-		cerr << "Hash set size = " << kmer_list_to_use.size() << endl;
-	} else { cerr << "could not open file?" << endl;}
-	for(uint64 i=0; i<DB_to_run; i++) {
-		Kmer_DB cur_acc(dir_dbs + "/" + db_names[i] , db_names[i]);
-		cur_acc.intersect_kmers(kmer_list_to_use, "order_kmers_appear_more_than_once");
+	/* Load user input files */	
+	vector<KMC_db_handle> db_handles = read_accession_db_list(argv[1]); // Read accessions to use
+	cerr << "Loading k-mers file" << endl;
+	kmer_set kmer_list_to_use =  load_kmer_raw_file(argv[2]); // loading kmers file
+	cerr << "Hash set size = " << kmer_list_to_use.size() << endl;
+	
+	/* Go over all input DBs and intersect k-mers with given list */
+	for(uint64 i=0; i<db_handles.size(); i++) {
+		cerr << i << ". Opening DB: " << db_handles[i].name << endl;
+		kmer_DB cur_acc(db_handles[i].dir_path, db_handles[i].name);
+		cur_acc.intersect_kmers(kmer_list_to_use, base_output_filename);
 	}
 	return 0;
 }
