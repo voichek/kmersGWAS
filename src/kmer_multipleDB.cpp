@@ -333,6 +333,7 @@ double kmer_multipleDB::calculate_kmer_score(
 	} else {return 0;}
 }
 
+// Precaculated scores^2 and sum of scores - imporve in efficency
 double kmer_multipleDB::calculate_kmer_score(
 		const my_multi_hash::const_iterator& it, 
 		const vector<double> &scores, 
@@ -361,21 +362,18 @@ double kmer_multipleDB::calculate_kmer_score(
 		E2x1 /= N1;
 		double d = (Ex1-Ex0);
 		d = d*d;
-//		Sx0 = sqrt(E2x0 - Ex0*Ex0);
-//		Sx1 = sqrt(E2x1 - Ex1*Ex1);	
 
 		double S2x0 = E2x0 - Ex0*Ex0;
 		double S2x1 = E2x1 - Ex1*Ex1;	
 
-		//double v = N1 + N0 - 2; // degree of freedom
-		//double sp = sqrt(((N1-1) * Sx1 * Sx1 + (N0-1) * Sx0 * Sx0) / v); // Pooled variance
 		double sp2 = ((N1-1) * S2x1  + (N0-1) * S2x0) ; // Pooled variance
-		//return (Ex1 - Ex0) / (sp * sqrt(1.0 / N1 + 1.0 / N0)); // t-test statistics
 		return d / (sp2 * (1.0 / N1 + 1.0 / N0)); // t-test statistics
 
 	} else {return 0;}
 }
-//
+
+// 2nd efficency improvments - calculations in uints (+- are more efficient than doubles, but */ is less
+// in total it does improve efficency
 double kmer_multipleDB::calculate_kmer_score(
 		const my_multi_hash::const_iterator& it, 
 		const vector<uint64> &scores, 
@@ -418,54 +416,6 @@ double kmer_multipleDB::calculate_kmer_score(
 	
 	} else {return 0;}
 }
-
-//double kmer_multipleDB::calculate_kmer_score(
- //       	const my_multi_hash::const_iterator& it, 
- //       	const vector<uint64> &scores, 
- //       	const vector<uint64> &scores2,
- //       	const uint64 score_sum,
- //       	const uint64 score2_sum,
- //       	const uint64 min_in_group
- //       	) const {
- //       uint64 Ex0, Ex1, E2x0, E2x1, N0, N1, bit;
- //       Ex0 = Ex1 =  N0 = N1 = E2x0 = E2x1 = 0;
- //       uint64 nwords = (scores.size()-1)/64 + 1;
- //
- //       uint64 i = 0;
- //       for(uint64 hashmap_i=0; hashmap_i<nwords; hashmap_i++) {
- //       	uint64 cur_word = it->second[hashmap_i]; 
- //       	for(uint64 bit_i=0; (bit_i<64) & (i<scores.size()) ; i++, bit_i++) {
- //       		bit = cur_word&1;
- //       		cur_word >>= 1;
- //
- //       		N1 = N1+bit;
- //       		bit = -bit; // so bit will be a mask
- //
- //       		Ex1 += scores[i]&bit;
- //       		E2x1 += scores2[i]&bit;
- //       	}
- //       }
- //       Ex0 =  score_sum - Ex1;
- //       E2x0 = score2_sum - E2x1;
- //       N0 = scores.size() - N1;
- //       if((min_in_group<=N0) && (min_in_group <= N1)) {
- //       	double dN0 = (double)N0;
- //       	double dN1 = (double)N1;
- //
- //       	double dEx0  = (double)Ex0  / dN0;
- //       	double dE2x0 = (double)E2x0 / dN0;
- //       	double dEx1  = (double)Ex1  / dN1;
- //       	double dE2x1 = (double)E2x1 / dN1;
- //       	double d = (dEx1-dEx0);
- //       	d = d*d;
- //       	double S2x0 = dE2x0 - dEx0*dEx0;
- //       	double S2x1 = dE2x1 - dEx1*dEx1;	
- //
-//		double sp2 = ((dN1-1) * S2x1  + (dN0-1) * S2x0) ; // Pooled variance
-//		return d / (sp2 * (1.0 / dN1 + 1.0 / dN0)); // t-test statistics
-//
-//	} else {return 0;}
-//}
 
 ///
 /// @brief	calculate the fisher exat test for association b/w categorical phenotype (other score) to 
