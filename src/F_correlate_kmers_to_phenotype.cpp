@@ -42,6 +42,8 @@ namespace po = boost::program_options;
 #include <iterator>
 #include <algorithm>    // std::random_shuffle
 #include <cstdlib>      // std::rand, std::srand
+
+#include "CTPL/ctpl_stl.h" //thread pool library
 using namespace std;
 
 
@@ -131,10 +133,25 @@ vector<string> get_DBs_paths(const vector<string> &names, const vector<KMC_db_ha
 	return paths;
 }
 
+bool is_double_uint(const double &x) {
+	if(x<0)
+		return false;
+	if(trunc(x) == x)
+		return true;
+	else
+		return false;
+}
+
+// This is
 vector<uint64> make_list_uint64(const vector<double> &l) {
 	vector<uint64> res(l.size());
-	for(size_t i=0; i<l.size(); i++)
-		res[i] = (uint64)l[i];
+	for(size_t i=0; i<l.size(); i++) {
+		if(is_double_uint(l[i]))
+			res[i] = (uint64)l[i];
+		else
+			throw std::logic_error("Got a value " + to_string(l[i]) + " need to get unsigned integers");
+	}
+
 	return res;
 
 }
@@ -160,6 +177,8 @@ int main(int argc, char* argv[])
 			 "Number of best k-mers to report")
 			("kmers_parts",			po::value<size_t>()->default_value(500), 
 			 "Loading only 1/parts of the k-mers to the memory each time")
+			("parallel",			po::value<size_t>()->default_value(4), 
+			 "Max number of threads to use")
 			;
 
 		/* parse the command line */
@@ -191,6 +210,8 @@ int main(int argc, char* argv[])
 		//		std::srand ( unsigned ( std::time(0) ) ); 
 		std::srand(123456789); // to have determenistic results - important in the premutations
 		/***************************************************************************************************/
+			
+
 		double t0 = get_time();
 		// Base name for all save files
 		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
@@ -198,6 +219,8 @@ int main(int argc, char* argv[])
 		size_t perm_phenotype = vm["permutations"].as<size_t>(); // #permutation on phenotypes
 		size_t heap_size = vm["best"].as<size_t>();	// # best k-mers to report
 		size_t n_steps = vm["kmers_parts"].as<size_t>(); // Load each time ~1/n_steps of k-mers
+		ctpl::thread_pool tp(vm["parallel"].as<size_t>());
+
 		// Load DB paths
 		vector<KMC_db_handle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
 		// Loading the phenotype (also include the list of needed accessions)
@@ -216,7 +239,7 @@ int main(int argc, char* argv[])
 
 		// Create heaps to save all best k-mers & scores
 		vector<kmer_heap> k_heap(perm_phenotype+1, kmer_heap(heap_size)); 
-
+		vector<std::future<void>> tp_results(k_heap.size());
 		/****************************************************************************************************
 		 *	Load all k-mers and presence/absence information and correlate with phenotypes
 		 ***************************************************************************************************/
@@ -226,8 +249,13 @@ int main(int argc, char* argv[])
 			for(size_t j=0; j<(perm_phenotype + 1); j++) { // Check association for each permutation
 //				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
 //						p_list[j].second, p_list[j].first); // first is same for all j
-				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
-						make_list_uint64(p_list[j].second)); // first is same for all j
+//				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
+//						make_list_uint64(p_list[j].second)); // first is same for all j
+				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j](int){
+						multiDB.add_kmers_to_heap(k_heap[j], make_list_uint64(p_list[j].second));});
+			}
+			for(size_t j=0; j<(perm_phenotype+1); j++) {
+				tp_results[j].get();
 				cerr << i << "\t" <<  j << "\t"; k_heap[j].plot_stat(); // heap status
 			}
 		}
