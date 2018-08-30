@@ -2,7 +2,7 @@
 
 using namespace std;
 
-vector<KMC_db_handle> read_accession_db_list(char *filename) {
+vector<KMC_db_handle> read_accession_db_list(string filename) {
 	ifstream fin(filename);
 	vector<KMC_db_handle> res;
 	KMC_db_handle db_info;

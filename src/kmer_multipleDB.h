@@ -41,9 +41,9 @@ struct bedbim_handle;
  */
 class kmer_multipleDB {
 	public:
-		kmer_multipleDB(const string& path_to_DBs, 
-				const std::vector<std::string>& db_names, 
-				const string& sorted_kmer_fn); // Ctor takes information of the DBs
+		kmer_multipleDB(const std::vector<string> &DB_paths, // Intentionally wrote string and not std:: as the KMC package include namespace std and I want to fix it 
+				const std::vector<std::string> &db_names, 
+				const std::string &sorted_kmer_fn); // Ctor takes information of the DBs
 		kmer_multipleDB() = delete; // no default Ctor
 		kmer_multipleDB(const kmer_multipleDB&) = delete; // no copy Ctor
 
@@ -71,9 +71,9 @@ class kmer_multipleDB {
 		// Continuous phenotype (e.g flowering time 1,2,3..100)
 		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<double> &scores, 
 				const std::vector<std::string> &names_scores) const;
+		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<double> &scores) const; //efficent procedure
 		// Categorical phenotype (e.g resistence yes/no) - never debugged!
-		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<size_t> &scores, 
-				const std::vector<std::string> &names_scores) const;
+		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<uint64> &scores) const;
 
 
 		inline const std::vector<std::string> get_dbs_names() 
@@ -99,7 +99,15 @@ class kmer_multipleDB {
 		// 1. Two sided t-test
 		double calculate_kmer_score(const my_multi_hash::const_iterator& it, 
 				const std::vector<double> &scores, const std::vector<std::size_t> &accession_index,
-				double min_in_group = 5.) const;
+				const double min_in_group = 5.) const;
+		double calculate_kmer_score(const my_multi_hash::const_iterator& it, 
+				const vector<double> &scores, 				const vector<double> &scores2,
+				const double score_sum,			const double score2_sum,
+				const double min_in_group =5.) const;
+		double calculate_kmer_score(const my_multi_hash::const_iterator& it, 
+				const vector<uint64> &scores,	const vector<uint64> &scores2,
+				const uint64 score_sum,			const uint64 score2_sum,
+				const uint64 min_in_group =5) const;
 
 		// 2. fisher exact test if we have only two options for scores (e.g resistence +/-)
 		double calculate_kmer_score(const my_multi_hash::const_iterator& it, 
@@ -113,8 +121,6 @@ class kmer_multipleDB {
 
 /***********************************************************************************************************/
 typedef std::pair<uint64, double> kmer_score;
-//auto cmp_second = [](auto &left, auto &right) 
-//{return (left.second*left.second) < (right.second*right.second);};
 
 struct cmp_second
 {

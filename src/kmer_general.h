@@ -43,6 +43,8 @@ struct KMC_db_handle {
 	std::string name;
 };
 
+typedef pair <vector<string>, vector<double> > phenotype_list;
+
 // Func: return the full path of a KMD db from its handle
 inline std::string KMC_db_full_path(const KMC_db_handle &h) { return h.dir_path + "/" + h.name;}
 
@@ -65,7 +67,7 @@ inline bool lookup_x(const kmer_set& Set, const uint64& kmer)
 }
 
 // Func: Read the list of accessions to use
-std::vector<KMC_db_handle> read_accession_db_list(char *filename);
+std::vector<KMC_db_handle> read_accession_db_list(std::string filename);
 // Func: transform a bit representation to bp representation
 std::string bits2kmer31(uint64 w); 
 // Func: Read a file with a list of k-mers (need to add prefix/header to files)

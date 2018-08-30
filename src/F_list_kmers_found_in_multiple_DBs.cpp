@@ -19,11 +19,10 @@
 ///=====================================================================================
 ///
 
-
 #include "kmer_general.h"
-#define PLOT_EVERY 5000000
 
 using namespace std;
+
 int main(int argc, char *argv[]) {
 	/* Read user input */
 	if(argc != 4) {
@@ -42,7 +41,7 @@ int main(int argc, char *argv[]) {
 	size_t minimum_kmer_count = atoi(argv[3]);
 
 	/* Build the hash table that will contain all the kmers counts */
-	my_hash main_db(HASH_TABLE_SIZE);
+	my_hash main_db(HASH_TABLE_SIZE); // Can get the initial hash_table_size from user
 	main_db.set_empty_key(NULL_KEY); // need to define "empty key" 
 	
 	/* Defining variables to use while going over the k-mers */
@@ -59,12 +58,9 @@ int main(int argc, char *argv[]) {
 		kmer_db.OpenForListing(KMC_db_full_path(db_handles[i])); // Open a KMC DB
 		k_mers.resize(0);  	
 
-		while (kmer_db.ReadNextKmer(kmer_obj, kmer_counter))  { // Reading k-mers in file
-			if((k_mers.size() % PLOT_EVERY) == 0) {cerr << "."; cerr.flush();}
+		while (kmer_db.ReadNextKmer(kmer_obj, kmer_counter))// Reading k-mers in file
 			k_mers.push_back(kmer_obj.to_uint());
-		}
-		cerr << endl;
-		
+
 		/* Update hash table */
 		for(size_t k=0; k<k_mers.size(); k++) {
 			it_hash = main_db.find(k_mers[k]);
@@ -75,7 +71,6 @@ int main(int argc, char *argv[]) {
 
 	/* output all the k-mers apearing more than once to a file */
 	ofstream file(output_fn, ios::binary);
-
 	vector<uint64> shareness(db_handles.size()+1, 0);
 	for(auto it : main_db) {
 		shareness[it.second]++;
@@ -84,11 +79,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	file.close();
-	
+
 	/* Output shareness measure */
 	cout << "k-mer appearance\tcount" << endl;
-	for(unsigned int i=0; i<shareness.size(); i++) {
+	for(size_t i=0; i<shareness.size(); i++) 
 		cout << i << "\t" << shareness[i] << endl;
-	}
+
 	return 0;
 }
