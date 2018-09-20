@@ -210,7 +210,7 @@ int main(int argc, char* argv[])
 		//		std::srand ( unsigned ( std::time(0) ) ); 
 		std::srand(123456789); // to have determenistic results - important in the premutations
 		/***************************************************************************************************/
-			
+		cerr << "test" << endl;	
 
 		double t0 = get_time();
 		// Base name for all save files
@@ -244,6 +244,8 @@ int main(int argc, char* argv[])
 		 *	Load all k-mers and presence/absence information and correlate with phenotypes
 		 ***************************************************************************************************/
 		cerr << "[TIMING]\tBEFORE LOADING\t" << ((get_time() - t0)/60) << endl;
+		size_t min_count = (p_list[0].first.size()+20-1)/20;
+		cerr << "min_count = " << min_count << endl;
 		for(uint64 i=1; i<=n_steps; i++) { 
 			multiDB.load_kmers(i, n_steps); 
 			for(size_t j=0; j<(perm_phenotype + 1); j++) { // Check association for each permutation
@@ -251,8 +253,8 @@ int main(int argc, char* argv[])
 //						p_list[j].second, p_list[j].first); // first is same for all j
 //				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
 //						make_list_uint64(p_list[j].second)); // first is same for all j
-				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j](int){
-						multiDB.add_kmers_to_heap(k_heap[j], make_list_uint64(p_list[j].second));});
+				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
+						multiDB.add_kmers_to_heap(k_heap[j], make_list_uint64(p_list[j].second),min_count);});
 			}
 			for(size_t j=0; j<(perm_phenotype+1); j++) {
 				tp_results[j].get();
@@ -314,15 +316,3 @@ int main(int argc, char* argv[])
 }
 
 
-//Use case 1:
-//Input: User upload N phenotypes each one for a subset of the 1135 genomes
-//Proccessing: Program loads each time % of all kmers, then an association score is calculated 
-//for each k-mer to all phenotypes (this stage should run in parallel)
-//association to k-mers is save in heaps (one for phenotype)
-//when finished going over all k-mers all k-mers are outputed to files
-//
-//Use case 2:
-//Input: a set of k-mers and accessions
-//output: output the presence absence of each k-mer over these accession
-//outputing needs to be able to output in a plink file
-//

@@ -263,7 +263,9 @@ void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vecto
 		kmers_and_scores.add_kmer(it->first, calculate_kmer_score(it, scores, scores2, sum_scores, sum_scores2));
 }
 // for categorical values (scores should have only 1 & 0!!!)
-void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vector<uint64> &scores) const {
+void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vector<uint64> &scores, 
+		const size_t &min_cnt) const {
+	cerr << "[XXX] " << min_cnt << endl;
 	uint64 sum_scores, sum_scores2;
 	sum_scores = sum_scores2 = 0;
 	vector<uint64> scores2(scores);
@@ -273,7 +275,7 @@ void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vecto
 		sum_scores2 += scores2[i];
 	}
 	for(my_multi_hash::const_iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) 
-		kmers_and_scores.add_kmer(it->first, calculate_kmer_score(it, scores, scores2, sum_scores, sum_scores2));
+		kmers_and_scores.add_kmer(it->first, calculate_kmer_score(it, scores, scores2, sum_scores, sum_scores2, min_cnt));
 }
 
 

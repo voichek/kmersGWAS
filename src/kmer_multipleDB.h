@@ -73,7 +73,8 @@ class kmer_multipleDB {
 				const std::vector<std::string> &names_scores) const;
 		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<double> &scores) const; //efficent procedure
 		// Categorical phenotype (e.g resistence yes/no) - never debugged!
-		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<uint64> &scores) const;
+		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<uint64> &scores, 
+				const std::size_t &min_cnt) const;
 
 
 		inline const std::vector<std::string> get_dbs_names() 
