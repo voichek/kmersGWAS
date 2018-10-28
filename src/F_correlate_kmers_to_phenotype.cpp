@@ -58,7 +58,7 @@ phenotype_list load_phenotypes_file(const string &filename) {
 	phenotype_list p_list;
 	
 	std::ifstream fin(filename);
-	fin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	fin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // read until the end of the first line
 	std::string word;
 	double value;
 	while(fin >> word) {
@@ -69,6 +69,55 @@ phenotype_list load_phenotypes_file(const string &filename) {
 	return p_list;
 }
 
+///
+/// @brief  Loading phenotypes values from file contatining more than one phenotype
+/// @param  filename: a path to a file containing phenotypes for each accession
+/// @return vactor of phenotype lists, pair of two vectors: 1. contain the accessions indices and the second the 
+/// phenotype for each accession
+///
+
+bool is_uint(const std::string& s)
+{
+	return !s.empty() && std::find_if(s.begin(), 
+			s.end(), [](char c) { return !std::isdigit(c); }) == s.end();
+}
+
+
+pair<vector<string>, vector<uint64_phenotype_list>> load_uint64_phenotypes_file(const string &filename) {
+	vector<uint64_phenotype_list> p_list;
+	vector<string> phenotypes_names;
+
+	std::ifstream 	fin(filename);
+	vector<string>  line_tokens;
+	string          line, cell;
+	size_t line_n(0);
+	while(getline(fin, line)) { // Read the file line by line
+		stringstream          lineStream(line);
+		while(std::getline(lineStream, cell, '\t'))
+			line_tokens.push_back(cell);
+		// Parsing the file into phenotypes
+		if(line_n == 0) {// header
+			for(size_t i=1; i<line_tokens.size(); i++)
+				phenotypes_names.push_back(line_tokens[i]);
+			p_list.resize(phenotypes_names.size()); 
+		} else { // data line
+			if(line_tokens.size() != (phenotypes_names.size() + 1)) 
+				throw std::logic_error("File should have the same number of fields in each row | " +
+						filename);
+			for(size_t i=0; i<phenotypes_names.size(); i++) {
+				p_list[i].first.push_back(line_tokens[0]);
+				if(is_uint(line_tokens[i+1]))
+					p_list[i].second.push_back(stoul(line_tokens[i+1]));
+				else
+					throw std::logic_error("Phenotypes should be natural numbers (uints) " + line_tokens[i+1]);
+			}
+		}
+		line_n++;
+		line_tokens.resize(0);
+	}
+	return pair<vector<string>, vector<uint64_phenotype_list>> (phenotypes_names, p_list);
+}
+
 phenotype_list randomize_phenotype(const phenotype_list &orig) {
 	phenotype_list permute_values(orig); // copy the original values;
 	std::random_shuffle(permute_values.second.begin(), permute_values.second.end());
@@ -76,7 +125,7 @@ phenotype_list randomize_phenotype(const phenotype_list &orig) {
 }
 
 // Notice that the names of the accession in each of the phenotypes has to be the same
-void write_fam_file(const vector<phenotype_list> &phenotypes, const string &fn) {
+void write_fam_file(const vector<uint64_phenotype_list> &phenotypes, const string &fn) {
 	ofstream f(fn, ios::out);
 	for(size_t i=0; i<phenotypes[0].first.size(); i++) {
 		f << phenotypes[0].first[i] << " " << phenotypes[0].first[i] << " 0 0 0";
@@ -92,8 +141,8 @@ void write_fam_file(const vector<phenotype_list> &phenotypes, const string &fn) 
 	f.close();
 }
 
-void write_fam_file(const phenotype_list &phenotype, const string &fn) {
-	write_fam_file(vector<phenotype_list>{phenotype}, fn);
+void write_fam_file(const uint64_phenotype_list &phenotype, const string &fn) {
+	write_fam_file(vector<uint64_phenotype_list>{phenotype}, fn);
 }
 
 size_t get_index_DB(const string &name, const vector<KMC_db_handle> &DBs) {
@@ -107,8 +156,8 @@ size_t get_index_DB(const string &name, const vector<KMC_db_handle> &DBs) {
 	}
 	return index;
 }
-phenotype_list intersect_phenotypes_to_present_DBs(const phenotype_list &pl, const vector<KMC_db_handle> &DB_paths, const bool &must_be_present) {
-	phenotype_list intersect_pl;
+uint64_phenotype_list intersect_phenotypes_to_present_DBs(const uint64_phenotype_list &pl, const vector<KMC_db_handle> &DB_paths, const bool &must_be_present) {
+	uint64_phenotype_list intersect_pl;
 	for(size_t i=0; i<pl.first.size(); i++) {
 		size_t index = get_index_DB(pl.first[i], DB_paths);
 		if(index == (~0u)) { // nothing found
@@ -151,9 +200,7 @@ vector<uint64> make_list_uint64(const vector<double> &l) {
 		else
 			throw std::logic_error("Got a value " + to_string(l[i]) + " need to get unsigned integers");
 	}
-
 	return res;
-
 }
 
 int main(int argc, char* argv[])
@@ -210,13 +257,12 @@ int main(int argc, char* argv[])
 		//		std::srand ( unsigned ( std::time(0) ) ); 
 		std::srand(123456789); // to have determenistic results - important in the premutations
 		/***************************************************************************************************/
-		cerr << "test" << endl;	
 
 		double t0 = get_time();
 		// Base name for all save files
 		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
 
-		size_t perm_phenotype = vm["permutations"].as<size_t>(); // #permutation on phenotypes
+//		size_t perm_phenotype = vm["permutations"].as<size_t>(); // #permutation on phenotypes
 		size_t heap_size = vm["best"].as<size_t>();	// # best k-mers to report
 		size_t n_steps = vm["kmers_parts"].as<size_t>(); // Load each time ~1/n_steps of k-mers
 		ctpl::thread_pool tp(vm["parallel"].as<size_t>());
@@ -224,13 +270,16 @@ int main(int argc, char* argv[])
 		// Load DB paths
 		vector<KMC_db_handle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
 		// Loading the phenotype (also include the list of needed accessions)
-		vector<phenotype_list> p_list{load_phenotypes_file(vm["phenotype_file"].as<string>())};
+		pair<vector<string>, vector<uint64_phenotype_list>> phenotypes_info = load_uint64_phenotypes_file(
+				vm["phenotype_file"].as<string>());
+		size_t phenotypes_n = phenotypes_info.first.size();
+		
 		// Intersect phenotypes only to the present DBs (can also check if all must be present)
-		p_list[0] = intersect_phenotypes_to_present_DBs(p_list[0], DB_paths, false);
-
-		for(size_t i=0; i<perm_phenotype; i++) // Add permuted phenotypes
-			p_list.push_back(randomize_phenotype(p_list[0]));
-		write_fam_file(p_list, fn_base + ".fam"); // save all the permutation to a fam file
+		for(size_t i=0; i<phenotypes_n; i++)
+			phenotypes_info.second[i] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[i], 
+					DB_paths, true);
+		vector<uint64_phenotype_list> p_list{phenotypes_info.second};
+//		write_fam_file(p_list, fn_base + ".fam"); // save all the permutation to a fam file
 
 		// Load all accessions data to a combine dataset
 		//		kmer_multipleDB multiDB(vm["DBs_path"].as<string>(), p_list[0].first, vm["kmers_file"].as<string>());    
@@ -238,25 +287,27 @@ int main(int argc, char* argv[])
 		kmer_multipleDB multiDB_step2(get_DBs_paths(p_list[0].first, DB_paths), p_list[0].first, vm["kmers_file"].as<string>());
 
 		// Create heaps to save all best k-mers & scores
-		vector<kmer_heap> k_heap(perm_phenotype+1, kmer_heap(heap_size)); 
+		vector<kmer_heap> k_heap(phenotypes_n, kmer_heap(heap_size)); 
 		vector<std::future<void>> tp_results(k_heap.size());
 		/****************************************************************************************************
 		 *	Load all k-mers and presence/absence information and correlate with phenotypes
 		 ***************************************************************************************************/
 		cerr << "[TIMING]\tBEFORE LOADING\t" << ((get_time() - t0)/60) << endl;
 		size_t min_count = (p_list[0].first.size()+20-1)/20;
+		if(min_count < 5)
+			min_count = 5;
 		cerr << "min_count = " << min_count << endl;
 		for(uint64 i=1; i<=n_steps; i++) { 
 			multiDB.load_kmers(i, n_steps); 
-			for(size_t j=0; j<(perm_phenotype + 1); j++) { // Check association for each permutation
+			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each permutation
 //				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
 //						p_list[j].second, p_list[j].first); // first is same for all j
 //				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
 //						make_list_uint64(p_list[j].second)); // first is same for all j
 				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
-						multiDB.add_kmers_to_heap(k_heap[j], make_list_uint64(p_list[j].second),min_count);});
+						multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
 			}
-			for(size_t j=0; j<(perm_phenotype+1); j++) {
+			for(size_t j=0; j<(phenotypes_n); j++) {
 				tp_results[j].get();
 				cerr << i << "\t" <<  j << "\t"; k_heap[j].plot_stat(); // heap status
 			}
@@ -269,7 +320,7 @@ int main(int argc, char* argv[])
 		 ***************************************************************************************************/
 		vector<kmer_set> best_kmers;	
 		cerr << "[TIMING]\tBEFORE SAVING\t" << ((get_time() - t0)/60) << endl;
-		for(size_t j=0; j<(perm_phenotype + 1); j++) {
+		for(size_t j=0; j<(phenotypes_n); j++) {
 			string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
 			k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
 
@@ -284,16 +335,17 @@ int main(int argc, char* argv[])
 		 ***************************************************************************************************/
 		// Open all bed & bim plink files	
 		vector<bedbim_handle> plink_output;
-		for(size_t j=0; j<(perm_phenotype+1); j++) {
-			plink_output.emplace_back(fn_base + "." + std::to_string(j)) ;
-			write_fam_file(p_list[j], fn_base + "." + std::to_string(j) + ".fam");
+		for(size_t j=0; j<(phenotypes_n); j++) {
+			plink_output.emplace_back(fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] ) ;
+			write_fam_file(p_list[j], fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] 
+					+ ".fam");
 		}
 		cerr << "[TIMING]\tOPENED PLINK FILES\t" << ((get_time() - t0)/60) << endl;
 
 		// Reload k-mers to create plink bed/bim files
-		for(uint64 i=1; i<=n_steps; i++) { // Notice here index from 1 and not 0 (might worth changing) 
+		for(uint64 i=1; i<=n_steps ; i++) { // Notice here index from 1 and not 0 (might worth changing) 
 			multiDB_step2.load_kmers(i, n_steps); 
-			for(size_t j=0; j<(perm_phenotype + 1); j++) { // Check association for each permutation
+			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each permutation
 				multiDB_step2.output_plink_bed_file(plink_output[j], best_kmers[j]); // parallel ?
 				cerr << i << "\t" <<  j << endl; 
 			}

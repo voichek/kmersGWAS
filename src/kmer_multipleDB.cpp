@@ -47,6 +47,7 @@ kmer_multipleDB::kmer_multipleDB(
 {
 	// build all the kmer_DB objects and open the sorted k-mer file
 	for(size_t i=0; i < m_db_names.size(); i++) {
+		cerr << m_db_names[i] << endl;
 		m_DBs.emplace_back(DB_paths[i] , m_db_names[i]);
 		m_DBs.back().open_sorted_kmer_file(sorted_kmer_fn);
 	}
@@ -262,20 +263,31 @@ void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vecto
 	for(my_multi_hash::const_iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) 
 		kmers_and_scores.add_kmer(it->first, calculate_kmer_score(it, scores, scores2, sum_scores, sum_scores2));
 }
-// for categorical values (scores should have only 1 & 0!!!)
+//// for categorical values (scores should have only 1 & 0!!!)
+//void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vector<uint64> &scores, 
+//		const size_t &min_cnt) const {
+//	cerr << "[XXX] " << min_cnt << endl;
+//	uint64 sum_scores, sum_scores2;
+//	sum_scores = sum_scores2 = 0;
+//	vector<uint64> scores2(scores);
+//	for(size_t i=0; i<scores.size(); i++) {
+//		scores2[i] = scores2[i]*scores2[i];
+//		sum_scores += scores[i];
+//		sum_scores2 += scores2[i];
+//	}
+//	for(my_multi_hash::const_iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) 
+//		kmers_and_scores.add_kmer(it->first, calculate_kmer_score(it, scores, scores2, sum_scores, sum_scores2, min_cnt));
+//}
+
+// 
 void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vector<uint64> &scores, 
 		const size_t &min_cnt) const {
-	cerr << "[XXX] " << min_cnt << endl;
-	uint64 sum_scores, sum_scores2;
-	sum_scores = sum_scores2 = 0;
-	vector<uint64> scores2(scores);
-	for(size_t i=0; i<scores.size(); i++) {
-		scores2[i] = scores2[i]*scores2[i];
+	uint64 sum_scores(0);
+	for(size_t i=0; i<scores.size(); i++) 
 		sum_scores += scores[i];
-		sum_scores2 += scores2[i];
-	}
+	double d_sum_scores = (double)sum_scores;
 	for(my_multi_hash::const_iterator it=m_kmers_pa.begin(); it != m_kmers_pa.end(); ++it) 
-		kmers_and_scores.add_kmer(it->first, calculate_kmer_score(it, scores, scores2, sum_scores, sum_scores2, min_cnt));
+		kmers_and_scores.add_kmer(it->first, calculate_kmer_score(it, scores, d_sum_scores,  min_cnt));
 }
 
 
@@ -416,6 +428,34 @@ double kmer_multipleDB::calculate_kmer_score(
 		double sp2 = ((dN1-1) * S2x1  + (dN0-1) * S2x0) ; // Pooled variance
 		return d / (sp2 * (1.0 / dN1 + 1.0 / dN0)); // t-test statistics
 	
+	} else {return 0;}
+}
+
+double kmer_multipleDB::calculate_kmer_score(
+		const my_multi_hash::const_iterator& it, 
+		const vector<uint64> &scores, 
+		const double score_sum,
+		const uint64 min_in_group
+		) const {
+	uint64 bit, N1(0), Ex1(0), N0;
+	double N=(double)scores.size();
+	for(uint64 i=0; i<scores.size(); i++) {
+		uint64 hashmap_i = (i>>6);
+		uint64  bit_i = i&63;
+
+		bit = (it->second[hashmap_i] >> bit_i)&1;
+		N1 = N1+bit;
+		bit = -bit; // so bit will be a mask
+
+		Ex1 += scores[i]&bit;
+	}
+	N0 = scores.size() - N1;
+	if((min_in_group<=N0) && (min_in_group <= N1)) {
+		double sum_gi = (double)N1;
+		double yigi = (double)Ex1;
+		double r =  N*yigi- sum_gi*score_sum;
+		r = r * r;
+		return r / (N*sum_gi - sum_gi*sum_gi);
 	} else {return 0;}
 }
 

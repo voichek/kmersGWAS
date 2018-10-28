@@ -109,6 +109,11 @@ class kmer_multipleDB {
 				const vector<uint64> &scores,	const vector<uint64> &scores2,
 				const uint64 score_sum,			const uint64 score2_sum,
 				const uint64 min_in_group =5) const;
+		double calculate_kmer_score(
+				const my_multi_hash::const_iterator& it, 
+				const vector<uint64> &scores, 
+				const double score_sum,
+				const uint64 min_in_group = 5) const; 
 
 		// 2. fisher exact test if we have only two options for scores (e.g resistence +/-)
 		double calculate_kmer_score(const my_multi_hash::const_iterator& it, 
