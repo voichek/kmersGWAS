@@ -79,8 +79,9 @@ def main():
     output_F_corr = "%s/F_corr_output" % data_dir
     os.system("mkdir %s" % output_F_corr)
 
-    cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --paths_file %s --kmers_file %s"  %\
-            (YV_corr, trans_pheno_fn, name_run, output_F_corr, RES_KMERS, PARALLEL, DBs_list_fn, "kmers_31mers_5min_1008acc_sorted")
+    cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --paths_file %s ---kmers_table %s"  %\
+            (YV_corr, trans_pheno_fn, name_run, output_F_corr, RES_KMERS, PARALLEL, DBs_list_fn, 
+                    "/tmp/global2/yvoichek/DBs/1001G_31mers/merge_kmers")
     print cur_cmd
     os.system(cur_cmd)
 
