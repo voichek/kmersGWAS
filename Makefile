@@ -12,23 +12,26 @@ BINDIR := bin
 
 KMC_API = $(INCLUDEDIR)/KMC/kmc_api/
 OBJ_KMC = $(BUILDIR)/kmc_file.o $(BUILDIR)/kmer_api.o $(BUILDIR)/mmer.o 
-OBJ_YV =  $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_multipleDB.o $(BUILDIR)/fisher_exact.o $(BUILDIR)/kmer_general.o
+OBJ_YV =  $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_multipleDB.o $(BUILDIR)/kmer_general.o
 OBJ_ALL = $(OBJ_KMC) $(OBJ_YV)
 
 
-all: F_correlate_kmers_to_phenotype F_kmers_intersect_and_sort F_kmers_count_histogram F_list_kmers_found_in_multiple_DBs
+all: F_correlate_kmers_to_phenotype F_kmers_intersect_and_sort F_kmers_count_histogram F_list_kmers_found_in_multiple_DBs F_create_kmer_table
+
+F_create_kmer_table: $(SRCDIR)/F_create_kmer_table.cpp $(OBJ_ALL)
+	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_create_kmer_table.cpp -o $(BINDIR)/F_create_kmer_table $(CPPFLAGS) $(LDFLAGS)
 
 F_correlate_kmers_to_phenotype: $(SRCDIR)/F_correlate_kmers_to_phenotype.cpp $(OBJ_ALL)
 	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_correlate_kmers_to_phenotype.cpp -o $(BINDIR)/F_correlate_kmers_to_phenotype $(CPPFLAGS) $(LDFLAGS)
 	
-F_kmers_intersect_and_sort: $(SRCDIR)/F_kmers_intersect_and_sort.cpp $(OBJ_ALL) 
-	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_kmers_intersect_and_sort.cpp -o $(BINDIR)/F_kmers_intersect_and_sort $(CPPFLAGS) 
+F_kmers_intersect_and_sort: $(SRCDIR)/F_kmers_intersect_and_sort.cpp $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o 
+	$(CXX) $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o $(SRCDIR)/F_kmers_intersect_and_sort.cpp -o $(BINDIR)/F_kmers_intersect_and_sort $(CPPFLAGS) 
 
 F_kmers_count_histogram: $(SRCDIR)/F_kmers_count_histogram.cpp $(OBJ_ALL) 
 	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_kmers_count_histogram.cpp -o $(BINDIR)/F_kmers_count_histogram $(CPPFLAGS) 
 
-F_list_kmers_found_in_multiple_DBs: $(SRCDIR)/F_list_kmers_found_in_multiple_DBs.cpp   $(OBJ_ALL) 
-	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_list_kmers_found_in_multiple_DBs.cpp -o $(BINDIR)/F_list_kmers_found_in_multiple_DBs $(CPPFLAGS) 
+F_list_kmers_found_in_multiple_DBs: $(SRCDIR)/F_list_kmers_found_in_multiple_DBs.cpp  $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o
+	$(CXX) $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o $(SRCDIR)/F_list_kmers_found_in_multiple_DBs.cpp -o $(BINDIR)/F_list_kmers_found_in_multiple_DBs $(CPPFLAGS) 
 
 
 
@@ -51,8 +54,6 @@ $(BUILDIR)/kmer_api.o:
 $(BUILDIR)/kmc_file.o:
 	$(CXX) -c  $(KMC_API)/kmc_file.cpp -o $(BUILDIR)/kmc_file.o $(CPPFLAGS)
 
-$(BUILDIR)/fisher_exact.o: 
-	$(CXX) -c $(INCLUDEDIR)/fisher-exact/kfunc.c -o $(BUILDIR)/fisher_exact.o $(CPPFLAGS)
 
 
 

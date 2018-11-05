@@ -18,22 +18,22 @@
 ///
 
 #include "kmer_DB.h"
+using namespace std;
 int main(int argc, char *argv[]) {
-	if(argc != 3) {
-		cerr << "usage: " << argv[0] << " <path of DB> <DB name>" << endl;
+	if(argc != 4) {
+		cerr << "usage: " << argv[0] << " <path of DB> <DB name> <kmer length>" << endl;
 		return 1;
 	}
 	string dir_path(argv[1]);
 	string db_name(argv[2]);
-	kmer_DB acc_kmers(dir_path, db_name);
+	kmer_DB acc_kmers(dir_path, db_name, atoi(argv[3]));
 
 	std::vector<std::size_t> counters = acc_kmers.calculate_kmers_counts_histogram();
 	
 	cout << "appearance\tcount" << endl;
-	for(std::size_t i=0; i<counters.size(); i++) {
+	for(std::size_t i=0; i<counters.size(); i++) 
 		cout << i << "\t" << counters[i] << endl;											
-	}
-
+	
 	return 0;
 }
 //}

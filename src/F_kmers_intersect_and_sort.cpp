@@ -25,9 +25,9 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
 	/* Read user input */
-	if(argc != 4) {
+	if(argc != 5) {
 		cerr << "usage: " << argv[0] << 
-			" <file with KMC DBs paths> <kmers to intersect file> <output base name>" << endl;
+			" <file with KMC DBs paths> <kmers to intersect file> <output base name> <kmer len>" << endl;
 		return -1;
 	}
 
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 	/* Go over all input DBs and intersect k-mers with given list */
 	for(uint64 i=0; i<db_handles.size(); i++) {
 		cerr << i << ". Opening DB: " << db_handles[i].name << endl;
-		kmer_DB cur_acc(db_handles[i].dir_path, db_handles[i].name);
+		kmer_DB cur_acc(db_handles[i].dir_path, db_handles[i].name, atoi(argv[4]));
 		cur_acc.intersect_kmers(kmer_list_to_use, base_output_filename);
 	}
 	return 0;

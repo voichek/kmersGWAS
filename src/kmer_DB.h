@@ -28,8 +28,8 @@ class kmer_DB_sorted_file {
 	void init();
 	void read_kmer();
 
-	// variabled for reading sortet kmer file
-	ifstream m_fin;			// handle to file
+	// variabled for reading sorted kmer file
+	std::ifstream m_fin;			// handle to file
 	uint64 m_last_kmer;		// last kmer loaded
 	uint64 m_kmers_in_file; // number of k-mers in file (calcluated once in init)
 	uint64 m_kmers_count;			// last kmer index in file
@@ -43,7 +43,7 @@ class kmer_DB_sorted_file {
  */
 class kmer_DB {
 	public:
-	kmer_DB(const std::string dir_path, const std::string db_name); // Constructor
+	kmer_DB(const std::string& dir_path, const std::string& db_name, const uint32& kmer_length); // Constructor
 	kmer_DB(const kmer_DB &x) = delete;
 	kmer_DB(kmer_DB&&) = default;
 	~kmer_DB() {}; //Destructor (compiler generate one automatically, but safe to be explicit)
@@ -59,11 +59,12 @@ class kmer_DB {
 	void intersect_kmers(const kmer_set& kmers_to_use, std::string file_name);
 
 	// open kmer sorted file name for reading
-	void open_sorted_kmer_file(const std::string& filename);
+	void open_sorted_kmer_file(const std::string& filename) {
+		m_sorted_kmers_f.open_file(m_dir_path + "/" + filename);}
 
 	// reads all k-mers until getting to somethreshold
-	void read_sorted_kmers(std::vector<uint64> &kmers, uint64 threshold = 0xFFFFFFFFFFFFFFFF);
-
+	void read_sorted_kmers(std::vector<uint64> &kmers, uint64 threshold = 0xFFFFFFFFFFFFFFFF) {
+		m_sorted_kmers_f.load_kmers_upto_x(threshold, kmers); }
 	// Counts how many times each k-mer appeared and plot to std::cout
 	std::vector<std::size_t> calculate_kmers_counts_histogram();
 
@@ -71,17 +72,15 @@ class kmer_DB {
 	CKMCFile get_KMC_handle();
 
 	private:
-//	kmer_DB(const kmer_DB&); // Only declare and no implementation - to avoid default by compiler
 	kmer_DB& operator=(const kmer_DB&) = delete; //same for the = operator
-
 
 	std::string m_db_name;
 	std::string m_dir_path;
 	
 	kmer_DB_sorted_file m_sorted_kmers_f;
+
+	uint32 m_kmer_len; 
 };
-
-
 
 #endif
 

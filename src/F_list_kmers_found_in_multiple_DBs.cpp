@@ -25,27 +25,23 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
 	/* Read user input */
-	if(argc != 4) {
+	if(argc != 6) {
 		cerr << "usage: " << argv[0] << 
-			" <file with KMC DBs paths> <output file> <minimum k-mer counts>" << endl;
+			" <1 file with KMC DBs paths> <2 output file> <3 minimum k-mer counts> <4 kmer len> <5  hash table initial size>" << endl;
 		return -1;
 	}
-
-	cerr << "File with DBs filenames: " << argv[1] << endl;
-	cerr << "Output filename: " << argv[2] << endl;
-	cerr << "Minimum count to output: " << argv[3] << endl;
-	
 	// Read accessions to use
 	vector<KMC_db_handle> db_handles = read_accession_db_list(argv[1]); 
 	string output_fn(argv[2]);
 	size_t minimum_kmer_count = atoi(argv[3]);
 
 	/* Build the hash table that will contain all the kmers counts */
-	my_hash main_db(HASH_TABLE_SIZE); // Can get the initial hash_table_size from user
+	my_hash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
 	main_db.set_empty_key(NULL_KEY); // need to define "empty key" 
 	
 	/* Defining variables to use while going over the k-mers */
-	CKmerAPI_YV kmer_obj(KMER_LEN);
+	cerr << "k-mer length " << atoi(argv[4]) << endl;
+	CKmerAPI_YV kmer_obj(atoi(argv[4]));
 	vector<uint64> k_mers;
 	uint kmer_counter;
 	my_hash::iterator it_hash;
@@ -57,27 +53,42 @@ int main(int argc, char *argv[]) {
 		CKMCFile kmer_db;
 		kmer_db.OpenForListing(KMC_db_full_path(db_handles[i])); // Open a KMC DB
 		k_mers.resize(0);  	
-
+		
 		while (kmer_db.ReadNextKmer(kmer_obj, kmer_counter))// Reading k-mers in file
 			k_mers.push_back(kmer_obj.to_uint());
 
 		/* Update hash table */
+		uint64_t or_all = 0;
 		for(size_t k=0; k<k_mers.size(); k++) {
 			it_hash = main_db.find(k_mers[k]);
-			if(it_hash == main_db.end()){ main_db.insert(my_hash::value_type(k_mers[k], 1));
-			} else { it_hash->second++;	}
+			or_all |= k_mers[k];
+			if(it_hash == main_db.end()){ 
+				main_db.insert(my_hash::value_type(k_mers[k], 1));
+			} else { 
+				it_hash->second++;	}
 		}
+		cerr << bitset<64>(or_all) << endl;
 	}
+	/* sort all k-mers */
+	k_mers.resize(0);
+	vector<uint64> shareness(db_handles.size()+1, 0);
+	for(auto it : main_db) {
+		if(it.second > db_handles.size()) {
+			cout << "Error! " << bitset<64>(it.first) << "\t" << it.second << endl;
+		} else {
+		shareness[it.second]++;
+		}
+		if(it.second>=minimum_kmer_count) 
+			k_mers.push_back(it.first);	
+	}
+	cerr << "Sorting..." << endl;
+	sort(k_mers.begin(), k_mers.end());	
+	cerr << "Finish sorting" << endl;
 
 	/* output all the k-mers apearing more than once to a file */
 	ofstream file(output_fn, ios::binary);
-	vector<uint64> shareness(db_handles.size()+1, 0);
-	for(auto it : main_db) {
-		shareness[it.second]++;
-		if(it.second>=minimum_kmer_count) {
-			file.write(reinterpret_cast<const char *>(&it.first), sizeof(it.first));
-		}
-	}
+	for(size_t i=0; i<k_mers.size(); i++) 
+		file.write(reinterpret_cast<const char *>(&k_mers[i]), sizeof(k_mers[i]));
 	file.close();
 
 	/* Output shareness measure */

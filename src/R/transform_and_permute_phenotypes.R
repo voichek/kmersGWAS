@@ -26,9 +26,9 @@ library(methods)
 library(mvnpermute)
 library(matrixcalc)
 
-source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/scripts/R_transform_phenotype/genabel/polygenic.R')
-source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/scripts/R_transform_phenotype/genabel/polylik.R')
-source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/scripts/emma.R')
+source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/genabel/polygenic.R')
+source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/genabel/polylik.R')
+source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/emma.R')
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 linear_trans_to_natural_numbers <- function(x) {
   x <- x-min(x)
@@ -47,8 +47,8 @@ set.seed(123456789) # To have a reporducible results
 fn_phenotypes <- args[1]
 fn_kinship <- args[2]
 n_permute <- as.numeric(args[3])
-output_base <- args[4]
-
+fn_out_phenotypes <- args[4]
+fn_out_trans_phenotypes <- args[5]
 
 # 1. Load phenotype file
 phenotypes <- read.csv(fn_phenotypes,sep='\t',header=TRUE)
@@ -66,40 +66,41 @@ if(!is.positive.semi.definite(K)) {
   quit()
 }
 ### 
-
-K_stand <- (n_acc-1)/sum((diag(n_acc)-matrix(1,n_acc,n_acc)/n_acc)*K)*K
-
-null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = c(n_acc,1)),K_stand)
-herit <- null$vg/(null$vg+null$ve)
-COV_MATRIX <- null$vg*K_stand+null$ve*diag(dim(K_stand)[1])
-
-# M <- solve(chol(COV_MATRIX))
-# Y_t <- crossprod(M,phenotypes$phenotype_value)
-# M_inv <- ginv(M)
-
-permute_phenotype <- mvnpermute(phenotypes$phenotype_value, rep(1, n_acc), COV_MATRIX, nr=n_permute, seed=123456789)
-
-################
-for(i in 1:n_permute) {
-  cur_perm = sample(1:n_acc)
-  phenotypes[paste("P",i, sep = '')] <- permute_phenotype[,i]
-  # phenotypes[paste("P",i, sep = '')] <- crossprod(M_inv, Y_t[cur_perm])
+if(n_permute > 0) {
+  K_stand <- (n_acc-1)/sum((diag(n_acc)-matrix(1,n_acc,n_acc)/n_acc)*K)*K #Doesn't effect COV_MATRIX
+  
+  null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = c(n_acc,1)),K_stand)
+  herit <- null$vg/(null$vg+null$ve)
+  COV_MATRIX <- null$vg*K_stand+null$ve*diag(dim(K_stand)[1])
+  
+  
+  # Part of second option to permute phenotypes
+  M <- solve(chol(COV_MATRIX))
+  Y_t <- crossprod(M,phenotypes$phenotype_value)
+  M_inv <- ginv(M)
+  
+  # permute_phenotype <- mvnpermute(phenotypes$phenotype_value, rep(1, n_acc), COV_MATRIX, nr=n_permute, seed=123456789)
+  
+  # 3. Permute phenotypes
+  for(i in 1:n_permute) {
+    cur_perm = sample(1:n_acc)
+    # phenotypes[paste("P",i, sep = '')] <- permute_phenotype[,i]
+    # Part of second method to permute phenotypes
+    phenotypes[paste("P",i, sep = '')] <- crossprod(M_inv, Y_t[cur_perm])
+  }
 }
 
 # 4. Transform phenotypes
 trans_phenotypes <- phenotypes
 for(i in 2:(n_permute+2)) {
-  print(paste('Working on',i))
   trans_phenotypes[,i] <- polygenic(phenotypes[,i], K,data.frame(c()), quiet = TRUE)$pgresidualY
 }
 
 # 5. Linearly transform transformed phenotypes
 trans_phenotypes[,2:(n_permute+2)] <- linear_trans_to_natural_numbers(trans_phenotypes[,2:(n_permute+2)])
 
-# 6. Output phenotypes before and after transformation (4+5)
-fn_out_phenotypes <- paste(output_base, '.phenotype', sep = '')
-fn_out_trans_phenotypes <- paste(output_base, '.phenotype.trans', sep = '')
-options(scipen=20)
+# 6. Output phenotypes before and after transformation (4+)5
 write.table(x=phenotypes, file=fn_out_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
+options(scipen=20)
 write.table(x=trans_phenotypes, file=fn_out_trans_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
 options(scipen=0)  # restore the default

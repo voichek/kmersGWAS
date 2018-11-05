@@ -2,11 +2,6 @@ from glob import glob
 import os
 import sys
 
-kinship_matrix_GEMMA = base_path + "tests/build_kinship_matrix_of_all_1001G/kinshipname_all_miss_0_75_gk2.sXX.txt"
-kinship_matrix_EMMA = base_path + "tests/build_kinship_matrix_of_all_1001G/kinship_emma.maf0_05"
-## to have the order of accession indices
-original_fam = base_path + "tests/build_kinship_matrix_of_all_1001G/1001genomes_snp-short-indel_only_ACGTN.vcf.plink.fam.original"
-
 def get_file_type_in_dir(dir_name, type_suffix):
     fns = glob("%s/*.%s" % (dir_name, type_suffix))
     if len(fns) != 1:
@@ -27,3 +22,25 @@ def create_new_relatedness_matrix(fn_in, fn_out, indices):
     # I am trying to keep this standard
     fout.write("\n".join(["\t".join(x)+"\t" for x in m]) + "\n")
     fout.close()
+
+def count_running_gemma():
+    return int(subprocess.check_output("ps -c | grep gemma | wc -l" , \
+            shell=True, stderr = subprocess.PIPE)[:-1])
+
+def get_best_pval(fn):
+    return subprocess.check_output("cat %s | tail -n +2 | cut -f9 | awk '$1 < 0.001' | sort -g | head -n1"\
+            % fn, shell=True, stderr = subprocess.PIPE)[:-1]
+
+def dir_exist(d):
+    if len(d) > 0 and (d[-1] == "/"):
+        d = d[:-1]
+
+    return (len(glob(d)) > 0)
+
+def get_file(fn):
+    if glob(fn) == 0:
+        s = "Couldn't find %s" % fn
+        raise Exception(s)
+    else:
+        return fn
+

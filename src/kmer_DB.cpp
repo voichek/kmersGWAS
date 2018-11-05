@@ -5,29 +5,26 @@ using google::dense_hash_set;
 using namespace std;
 
 
-kmer_DB::kmer_DB(std::string dir_path, std::string db_name):
+kmer_DB::kmer_DB(const string& dir_path, const string& db_name, const uint32& kmer_length):
 	m_db_name(db_name),
 	m_dir_path(dir_path),
-	m_sorted_kmers_f()
-{}
-
-
+	m_sorted_kmers_f(),
+	m_kmer_len(kmer_length)
+{
+	if((m_kmer_len<MIN_KMER_LEN) || (m_kmer_len>MAX_KMER_LEN)) {
+			throw std::logic_error("Ilegal k-mer length");
+	}
+}
 
 
 // go over the KMC DB and output to file only the kmers in the kmers set inputed
 void kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_name) {
 	string output_file = m_dir_path + "/" +  file_name;
-	string output_log_file = output_file + ".log";
-
 	ofstream of(output_file, ios::binary);
-	ofstream of_log(output_log_file);
 
-	cerr << output_file << endl;
 	CKMCFile kmer_database = get_KMC_handle(); //open DB
-	CKmerAPI_YV kmer_obj(KMER_LEN);
+	CKmerAPI_YV kmer_obj(m_kmer_len);
 
-	double t0,t1;
-	t0 = get_time();
 	unsigned int counter;
 	uint64 cnt_f = 0, cnt_nf = 0, kmer;
 
@@ -41,25 +38,22 @@ void kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_nam
 	}
 	// Sort kmers 
 	sort(kmers.begin(), kmers.end());
-	for(vector<uint64>::const_iterator it = kmers.begin(); it != kmers.end(); ++it) {
-	of.write(reinterpret_cast<const char *>(&(*it)), sizeof(*it));
-	}
-	t1 = get_time();
-	of_log << m_db_name << "\ttime\t" << t1-t0 << "\tfound\t" << cnt_f << "\tnot_found\t" << cnt_nf << endl;
+	for(vector<uint64>::const_iterator it = kmers.begin(); it != kmers.end(); ++it) 
+		of.write(reinterpret_cast<const char *>(&(*it)), sizeof(*it));
+
 	of.close();
-	of_log.close();
 }
 
 // Counts how many times each k-mer appeared and plot to std::cout
-vector<std::size_t> kmer_DB::calculate_kmers_counts_histogram() {
+vector<size_t> kmer_DB::calculate_kmers_counts_histogram() {
 	CKMCFile kmer_database = get_KMC_handle();
-	CKmerAPI kmer_obj(KMER_LEN);
-
-	vector<std::size_t> counters(0, 0);
+	CKmerAPI_YV kmer_obj(m_kmer_len);
+	vector<size_t> counters(0, 0);
 	unsigned int counter;
 	while(kmer_database.ReadNextKmer(kmer_obj, counter)) {
-		if(counter >= counters.size()) { counters.resize(counter+1,0);}
-		counters[counter] += 1;		
+		if(counter >= counters.size()) 
+			counters.resize(counter+1,0);
+		counters[counter] += 1;
 	}
 	return counters;
 }
@@ -73,17 +67,6 @@ CKMCFile kmer_DB::get_KMC_handle() {
 }
 
 
-void kmer_DB::open_sorted_kmer_file(const std::string& filename) {
-	m_sorted_kmers_f.open_file(m_dir_path + "/" + filename);
-}
-
-// reads all k-mers until getting to somethreshold
-void kmer_DB::read_sorted_kmers(std::vector<uint64> &kmers, uint64 threshold ) {
-	m_sorted_kmers_f.load_kmers_upto_x(threshold, kmers);
-}
-
-
-
 
 /**
  * Definition of class kmer_DB_sorted_file member functions
@@ -91,9 +74,9 @@ void kmer_DB::read_sorted_kmers(std::vector<uint64> &kmers, uint64 threshold ) {
 
 kmer_DB_sorted_file::kmer_DB_sorted_file():
 	m_fin(),
-	m_last_kmer(0xFFFFFFFFFFFFFFFF),
-	m_kmers_in_file(0xFFFFFFFFFFFFFFFF),
-	m_kmers_count(0xFFFFFFFFFFFFFFFF) {
+	m_last_kmer(NULL_KEY),
+	m_kmers_in_file(NULL_KEY),
+	m_kmers_count(NULL_KEY) {
 	}
 
 
@@ -135,9 +118,9 @@ void kmer_DB_sorted_file::open_file(const std::string &filename) {
 void kmer_DB_sorted_file::close_file() {
 	if(m_fin.is_open()) {
 		m_fin.close();
-		m_last_kmer = 0xFFFFFFFFFFFFFFFF;
-		m_kmers_in_file = 0xFFFFFFFFFFFFFFFF;
-		m_kmers_count = 0xFFFFFFFFFFFFFFFF;
+		m_last_kmer = NULL_KEY;
+		m_kmers_in_file = NULL_KEY;
+		m_kmers_count = NULL_KEY;
 	}
 }
 
@@ -154,10 +137,12 @@ void kmer_DB_sorted_file::load_kmers_upto_x(const uint64 &threshold, std::vector
 	kmers.resize(0);
 	while((m_last_kmer <= threshold) && (m_kmers_count<m_kmers_in_file)) {
 		kmers.push_back(m_last_kmer);
-		read_kmer();
+		read_kmer(); // over-ride last kmer
 	}
 	if((m_last_kmer <= threshold) && (m_kmers_count==m_kmers_in_file)) {
-		kmers.push_back(m_last_kmer);
+		if(m_last_kmer != NULL_KEY)
+			kmers.push_back(m_last_kmer); // So we won't read the lasy k-mer twice
+		m_last_kmer = NULL_KEY;
 	}
 }
 

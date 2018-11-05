@@ -2,10 +2,9 @@
 ///      @file  F_correlate_kmers_to_phenotype.cpp
 ///     @brief  Loading and correlating phenotype to the presence of k-mers
 ///
-/// We will load a phenotype data and a list of k-mers DBs and will correlate them.
+/// We will load a phenotype data and a table of k-mers presence absence.
 /// The program will output the interesting k-mers as well as their presence-absence
 /// information to output files.
-/// The program will have the possibility of looking on only part of the k-mers spectrum.	
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
@@ -40,10 +39,10 @@ namespace po = boost::program_options;
 
 #include <iostream>
 #include <iterator>
-#include <algorithm>    // std::random_shuffle
+#include <algorithm>    // 
 #include <cstdlib>      // std::rand, std::srand
 
-#include "CTPL/ctpl_stl.h" //thread pool library
+#include "../include/CTPL/ctpl_stl.h" //thread pool library
 using namespace std;
 
 
@@ -117,13 +116,6 @@ pair<vector<string>, vector<uint64_phenotype_list>> load_uint64_phenotypes_file(
 	}
 	return pair<vector<string>, vector<uint64_phenotype_list>> (phenotypes_names, p_list);
 }
-
-phenotype_list randomize_phenotype(const phenotype_list &orig) {
-	phenotype_list permute_values(orig); // copy the original values;
-	std::random_shuffle(permute_values.second.begin(), permute_values.second.end());
-	return permute_values;
-}
-
 // Notice that the names of the accession in each of the phenotypes has to be the same
 void write_fam_file(const vector<uint64_phenotype_list> &phenotypes, const string &fn) {
 	ofstream f(fn, ios::out);
@@ -182,6 +174,14 @@ vector<string> get_DBs_paths(const vector<string> &names, const vector<KMC_db_ha
 	return paths;
 }
 
+vector<string> get_DBs_names(const vector<KMC_db_handle> &DBs) {
+	vector<string> names;
+	for(size_t i=0; i<DBs.size(); i++) {
+		names.push_back(DBs[i].name);
+	}
+	return names;
+}
+
 bool is_double_uint(const double &x) {
 	if(x<0)
 		return false;
@@ -217,15 +217,15 @@ int main(int argc, char* argv[])
 			("output_dir,o",		po::value<string>()->default_value("."), 
 			 "where to save output files")
 			("paths_file",			po::value<string>(),	"file contatining a list of path for every DB")
-			("kmers_file",			po::value<string>(),	"name of k-mer file inside every sub-directory")
-			("permutations",		po::value<size_t>()->default_value(0), 
-			 "How many permutation to do for phenotypes")
+			("kmers_table",			po::value<string>(),	"Presence/absemce k-mer file")
 			("best,n",				po::value<size_t>()->default_value(1000000), 
 			 "Number of best k-mers to report")
-			("kmers_parts",			po::value<size_t>()->default_value(500), 
-			 "Loading only 1/parts of the k-mers to the memory each time")
+			("batch_size",			po::value<size_t>()->default_value(10000000), 
+			 "Loading only part of the presence absence info to memory")
 			("parallel",			po::value<size_t>()->default_value(4), 
 			 "Max number of threads to use")
+			("kmer_len",			po::value<uint32_t>(), 
+			 "Length of the k-mers")
 			;
 
 		/* parse the command line */
@@ -254,18 +254,15 @@ int main(int argc, char* argv[])
 			cout << "Need to specify the base name\n";
 			return 1;
 		}
-		//		std::srand ( unsigned ( std::time(0) ) ); 
-		std::srand(123456789); // to have determenistic results - important in the premutations
 		/***************************************************************************************************/
-
-		double t0 = get_time();
 		// Base name for all save files
+		double t0 = get_time();
 		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
-
-//		size_t perm_phenotype = vm["permutations"].as<size_t>(); // #permutation on phenotypes
 		size_t heap_size = vm["best"].as<size_t>();	// # best k-mers to report
-		size_t n_steps = vm["kmers_parts"].as<size_t>(); // Load each time ~1/n_steps of k-mers
+		size_t batch_size = vm["batch_size"].as<size_t>(); // Load each time ~1/n_steps of k-mers
 		ctpl::thread_pool tp(vm["parallel"].as<size_t>());
+
+		uint32_t kmer_length = vm["kmer_len"].as<uint32_t>();
 
 		// Load DB paths
 		vector<KMC_db_handle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
@@ -273,18 +270,25 @@ int main(int argc, char* argv[])
 		pair<vector<string>, vector<uint64_phenotype_list>> phenotypes_info = load_uint64_phenotypes_file(
 				vm["phenotype_file"].as<string>());
 		size_t phenotypes_n = phenotypes_info.first.size();
-		
+
 		// Intersect phenotypes only to the present DBs (can also check if all must be present)
 		for(size_t i=0; i<phenotypes_n; i++)
 			phenotypes_info.second[i] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[i], 
 					DB_paths, true);
 		vector<uint64_phenotype_list> p_list{phenotypes_info.second};
-//		write_fam_file(p_list, fn_base + ".fam"); // save all the permutation to a fam file
 
 		// Load all accessions data to a combine dataset
-		//		kmer_multipleDB multiDB(vm["DBs_path"].as<string>(), p_list[0].first, vm["kmers_file"].as<string>());    
-		kmer_multipleDB multiDB(get_DBs_paths(p_list[0].first, DB_paths), p_list[0].first, vm["kmers_file"].as<string>());
-		kmer_multipleDB multiDB_step2(get_DBs_paths(p_list[0].first, DB_paths), p_list[0].first, vm["kmers_file"].as<string>());
+		kmer_multipleDB multiDB(
+				vm["kmers_table"].as<string>(),
+				get_DBs_names(DB_paths),
+				p_list[0].first, 
+				kmer_length);
+		
+		kmer_multipleDB multiDB_step2(
+				vm["kmers_table"].as<string>(),
+				get_DBs_names(DB_paths),
+				p_list[0].first, 
+				kmer_length);
 
 		// Create heaps to save all best k-mers & scores
 		vector<kmer_heap> k_heap(phenotypes_n, kmer_heap(heap_size)); 
@@ -293,28 +297,25 @@ int main(int argc, char* argv[])
 		 *	Load all k-mers and presence/absence information and correlate with phenotypes
 		 ***************************************************************************************************/
 		cerr << "[TIMING]\tBEFORE LOADING\t" << ((get_time() - t0)/60) << endl;
-		size_t min_count = (p_list[0].first.size()+20-1)/20;
+		size_t min_count = (p_list[0].first.size()+20-1)/20; // MAF of 5% - maybe should make this parameter external
 		if(min_count < 5)
 			min_count = 5;
 		cerr << "min_count = " << min_count << endl;
-		for(uint64 i=1; i<=n_steps; i++) { 
-			multiDB.load_kmers(i, n_steps); 
-			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each permutation
-//				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
-//						p_list[j].second, p_list[j].first); // first is same for all j
-//				multiDB.add_kmers_to_heap(k_heap[j],  // parallel?
-//						make_list_uint64(p_list[j].second)); // first is same for all j
+//		for(uint64 i=1; i<=n_steps; i++)
+		size_t batch_index = 0;
+		while(multiDB.load_kmers(batch_size)) { 
+			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
 				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
 						multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
 			}
 			for(size_t j=0; j<(phenotypes_n); j++) {
 				tp_results[j].get();
-				cerr << i << "\t" <<  j << "\t"; k_heap[j].plot_stat(); // heap status
+				cerr << batch_index << "\t"; k_heap[j].plot_stat(); // heap status
 			}
+			batch_index++;
 		}
 		cerr << "[TIMING]\tAFTER LOADING\t" << ((get_time() - t0)/60) << endl;
-		// close DBs, and release space
-		multiDB.clear_hashtable();
+		// close DBs, and release space ??
 		/****************************************************************************************************
 		 *	save best k-mers to files and create set of k-mers from heaps (and clear heaps)	
 		 ***************************************************************************************************/
@@ -343,15 +344,17 @@ int main(int argc, char* argv[])
 		cerr << "[TIMING]\tOPENED PLINK FILES\t" << ((get_time() - t0)/60) << endl;
 
 		// Reload k-mers to create plink bed/bim files
-		for(uint64 i=1; i<=n_steps ; i++) { // Notice here index from 1 and not 0 (might worth changing) 
-			multiDB_step2.load_kmers(i, n_steps); 
-			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each permutation
+		//for(uint64 i=1; i<=n_steps ; i++) { // Notice here index from 1 and not 0 (might worth changing) 
+		batch_index = 0;
+		while(multiDB_step2.load_kmers(batch_size)) { 
+			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
 				multiDB_step2.output_plink_bed_file(plink_output[j], best_kmers[j]); // parallel ?
-				cerr << i << "\t" <<  j << endl; 
+				cerr << batch_index  << endl; 
 			}
+			batch_index++;
 		}
 		cerr << "[TIMING]\tWROTE PLINK FILES\t" << ((get_time() - t0)/60) << endl;
-		multiDB_step2.clear_hashtable(); // close DBs, release space
+		// close DBs, release space ??
 		// close all bed & bim plink files & (specific fam?)
 		for(size_t j=0; j<plink_output.size(); j++)
 			plink_output[j].close();
