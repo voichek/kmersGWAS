@@ -33,7 +33,7 @@ parser.add_argument("--kmers_table", dest = "kmers_table", type=str, required=Tr
 
 # path for GEMMA
 parser.add_argument("--gemma_path", dest = "gemma_path", type=str,
-        default = "/ebio/abt6/yvoichek/smallproj/prefix/bin/gemma-0.98-linux-static",
+        default = "/ebio/abt6/yvoichek/smallproj/prefix/bin/gemma",
         help='path to GEMMA')
 
 # Parallel

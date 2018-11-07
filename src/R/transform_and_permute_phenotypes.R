@@ -49,7 +49,7 @@ fn_kinship <- args[2]
 n_permute <- as.numeric(args[3])
 fn_out_phenotypes <- args[4]
 fn_out_trans_phenotypes <- args[5]
-
+f_log <- file(args[6])
 # 1. Load phenotype file
 phenotypes <- read.csv(fn_phenotypes,sep='\t',header=TRUE)
 av_pheno <- mean(phenotypes$phenotype_value)
@@ -66,27 +66,32 @@ if(!is.positive.semi.definite(K)) {
   quit()
 }
 ### 
+null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = c(n_acc,1)),K)
+herit <- null$vg/(null$vg+null$ve)
+COV_MATRIX <- null$vg*K+null$ve*diag(dim(K)[1])
+# Logging
+writeLines(c(paste('EMMA_n_permutation','=',n_permute), 
+             paste('EMMA_n_accessions','=',n_acc), 
+             paste('EMMA_vg','=',null$vg), 
+             paste('EMMA_ve','=',null$ve), 
+             paste('EMMA_herit','=',herit)),f_log)
+close(f_log)
 if(n_permute > 0) {
-  K_stand <- (n_acc-1)/sum((diag(n_acc)-matrix(1,n_acc,n_acc)/n_acc)*K)*K #Doesn't effect COV_MATRIX
-  
-  null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = c(n_acc,1)),K_stand)
-  herit <- null$vg/(null$vg+null$ve)
-  COV_MATRIX <- null$vg*K_stand+null$ve*diag(dim(K_stand)[1])
-  
-  
+  # K_stand <- (n_acc-1)/sum((diag(n_acc)-matrix(1,n_acc,n_acc)/n_acc)*K)*K #Doesn't effect COV_MATRIX
+
   # Part of second option to permute phenotypes
-  M <- solve(chol(COV_MATRIX))
-  Y_t <- crossprod(M,phenotypes$phenotype_value)
-  M_inv <- ginv(M)
+  # M <- solve(chol(COV_MATRIX))
+  # Y_t <- crossprod(M,phenotypes$phenotype_value)
+  # M_inv <- ginv(M)
   
-  # permute_phenotype <- mvnpermute(phenotypes$phenotype_value, rep(1, n_acc), COV_MATRIX, nr=n_permute, seed=123456789)
+  permute_phenotype <- mvnpermute(phenotypes$phenotype_value, rep(1, n_acc), COV_MATRIX, nr=n_permute, seed=123456789)
   
   # 3. Permute phenotypes
   for(i in 1:n_permute) {
-    cur_perm = sample(1:n_acc)
-    # phenotypes[paste("P",i, sep = '')] <- permute_phenotype[,i]
+    phenotypes[paste("P",i, sep = '')] <- permute_phenotype[,i]
+    # cur_perm = sample(1:n_acc)
     # Part of second method to permute phenotypes
-    phenotypes[paste("P",i, sep = '')] <- crossprod(M_inv, Y_t[cur_perm])
+    # phenotypes[paste("P",i, sep = '')] <- crossprod(M_inv, Y_t[cur_perm])
   }
 }
 

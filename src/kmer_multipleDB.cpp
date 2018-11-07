@@ -19,9 +19,10 @@
 ///
 
 #include "kmer_multipleDB.h"
+
 #include <math.h>
-#include <bitset>
 #include <algorithm>
+#include <bitset>
 #include <numeric>
 using namespace std;
 
@@ -50,6 +51,7 @@ kmer_multipleDB::kmer_multipleDB(
 	m_left_in_file(),
 	m_kmer_number(),
 	m_kmer_loaded(0),
+	m_row_offset(0),
 	m_map_word_index(),
 	m_map_bit_index(),
 	m_verbose(true)
@@ -61,7 +63,7 @@ kmer_multipleDB::kmer_multipleDB(
 		m_kmer_table_file.seekg (0, ios::beg); //go back to begining
 
 		uint32 prefix, file_kmer_len;
-		uint64 file_accession_number;
+		uint64_t file_accession_number;
 		m_kmer_table_file.read(reinterpret_cast<char *>(&prefix), sizeof(prefix));
 		m_kmer_table_file.read(reinterpret_cast<char *>(&file_accession_number), sizeof(file_accession_number));
 		m_kmer_table_file.read(reinterpret_cast<char *>(&file_kmer_len), sizeof(file_kmer_len));
@@ -75,7 +77,7 @@ kmer_multipleDB::kmer_multipleDB(
 			throw std::logic_error("Kmer length not as defined in class");
 
 		// From the size of the file we can calculate the number of k_mers
-		size_t size_per_kmer = sizeof(uint64) * (1 + m_hash_words_db_file);
+		size_t size_per_kmer = sizeof(uint64_t) * (1 + m_hash_words_db_file);
 		if((m_left_in_file % size_per_kmer) != 0)
 			throw std::logic_error("size of file not valid");
 		m_kmer_number = m_left_in_file / size_per_kmer;
@@ -94,20 +96,23 @@ kmer_multipleDB::kmer_multipleDB(
  * @param   size of memory batch and a set of k-mers to intersect with
  * @return return false if table file is allready finished 
  */
-bool kmer_multipleDB::load_kmers(const uint64 &batch_size, const kmer_set &set_kmers_to_use) {
+bool kmer_multipleDB::load_kmers(const uint64_t &batch_size, const kmer_set &set_kmers_to_use) {
+	m_row_offset = m_kmer_loaded;
 	clear();
 	if(m_left_in_file == 0) {
 		return false;
 		m_kmer_table_file.close();
 	} else { // file not empty
-		vector<uint64> reading_buffer(m_hash_words_db_file+1);
+		vector<uint64_t> reading_buffer(m_hash_words_db_file+1);
 		for(size_t i=0; (i<batch_size) && (m_left_in_file>0); i++) {
 			// Reading from file
-			for(size_t j=0;j<reading_buffer.size();j++)
-				m_kmer_table_file.read(reinterpret_cast<char *>(&reading_buffer[j]), 
-						sizeof(reading_buffer[j]));
+			//		for(size_t j=0;j<reading_buffer.size();j++)
+			//			m_kmer_table_file.read(reinterpret_cast<char *>(&reading_buffer[j]), 
+			//					sizeof(reading_buffer[j]));
+			m_kmer_table_file.read(reinterpret_cast<char *>(reading_buffer.data()), 
+					sizeof(uint64_t)*reading_buffer.size());
 			//update counters
-			m_left_in_file -= (reading_buffer.size() * sizeof(uint64));
+			m_left_in_file -= (reading_buffer.size() * sizeof(uint64_t));
 			m_kmer_loaded++;
 			if((set_kmers_to_use.size() == 0) || (lookup_x(set_kmers_to_use,reading_buffer[0]))) {
 				m_kmers.push_back(reading_buffer[0]); // save k-mers
@@ -116,9 +121,9 @@ bool kmer_multipleDB::load_kmers(const uint64 &batch_size, const kmer_set &set_k
 				size_t table_offset = m_kmers_table.size();
 				m_kmers_table.resize(table_offset+m_hash_words, 0);
 				for(size_t col_index=0; col_index<m_accessions; col_index++) {
-					uint64 new_bit = (reading_buffer[m_map_word_index[col_index]+1] >> m_map_bit_index[col_index]) & 1ull;
-					uint64 hashmap_i = (col_index>>6);
-					uint64  bit_i = col_index&63;
+					uint64_t new_bit = (reading_buffer[m_map_word_index[col_index]+1] >> m_map_bit_index[col_index]) & 1ull;
+					uint64_t hashmap_i = (col_index>>6);
+					uint64_t  bit_i = col_index&63;
 					m_kmers_table[table_offset + hashmap_i] |= (new_bit << bit_i);
 				}
 			}	
@@ -183,31 +188,45 @@ void kmer_multipleDB::output_plink_bed_file(const string &base_name) const  {
 };
 
 void kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const kmer_set &set_kmers) const  {
-	unsigned char b;
-	uint64 w;
 	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
 		if((set_kmers.size() == 0) || (lookup_x(set_kmers,m_kmers[kmer_i]))) { // check k-mer in set (or empty set)
-			f.f_bim << "0\t" << bits2kmer31(m_kmers[kmer_i], m_kmer_len) << "\t0\t0\t0\t1\n"; 
-			size_t container_i = kmer_i*m_hash_words;
-			size_t acc_index = 0;
-			for(size_t i=container_i; i<(container_i+m_hash_words); i++) {
-				w = m_kmers_table[i];
-				for(size_t bi=0; (bi<16) && (acc_index < m_accessions); bi++) { // every word is 64 accessions (16*4) every 4 accessions is a byte
-					b = (w&1);
-					w >>= 1;
-					b ^= ((w&1)<<2);
-					w >>= 1;
-					b ^= ((w&1)<<4);
-					w >>= 1;
-					b ^= ((w&1)<<6);
-					b |= (b<<1);
-					w >>= 1;
-					f.f_bed << b;
-					acc_index += 4;
-				}
-			}
+			write_PA(bits2kmer31(m_kmers[kmer_i], m_kmer_len), kmer_i, f); 
 		}
 	}
+}
+
+void kmer_multipleDB::write_PA(const string &name, const size_t &kmer_i, bedbim_handle &f) const {
+	f.f_bim << "0\t" << name << "\t0\t0\t0\t1\n"; 
+	size_t container_i = kmer_i*m_hash_words;
+	size_t acc_index = 0;
+	for(size_t i=container_i; i<(container_i+m_hash_words); i++) {
+		uint64_t w = m_kmers_table[i];
+		for(size_t bi=0; (bi<16) && (acc_index < m_accessions); bi++) { // every word is 64 accessions (16*4) every 4 accessions is a byte
+			unsigned char b = (w&1);
+			w >>= 1;
+			b ^= ((w&1)<<2);
+			w >>= 1;
+			b ^= ((w&1)<<4);
+			w >>= 1;
+			b ^= ((w&1)<<6);
+			b |= (b<<1);
+			w >>= 1;
+			f.f_bed << b;
+			acc_index += 4;
+		}
+	}
+
+}
+
+size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kmer_output> &kmer_list, size_t index) const {
+	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
+		if((index<kmer_list.size()) && 
+				(get<1>(kmer_list[index])==(kmer_i+m_row_offset))) {
+			write_PA(get<0>(kmer_list[index]), kmer_i, f);
+			index++;	
+		}
+	}
+	return index;
 }
 
 /////
@@ -218,14 +237,16 @@ void kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const kmer_set &se
 ////			names_scores - name of the DB the score is relevant to
 ///// @return 
 /////
-void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vector<uint64> &scores, 
+void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vector<uint64_t> &scores, 
 		const size_t &min_cnt) const {
-	uint64 sum_scores(0);
+	uint64_t sum_scores(0);
 	for(size_t i=0; i<scores.size(); i++) 
 		sum_scores += scores[i];
 	double d_sum_scores = (double)sum_scores;
 	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++)
-		kmers_and_scores.add_kmer(m_kmers[kmer_index], calculate_kmer_score(kmer_index, scores, d_sum_scores,  min_cnt));
+		kmers_and_scores.add_kmer(m_kmers[kmer_index], 
+				calculate_kmer_score(kmer_index, scores, d_sum_scores,  min_cnt),
+				m_row_offset + kmer_index);
 }
 
 
@@ -247,16 +268,16 @@ void kmer_multipleDB::create_map_from_all_DBs() {
 
 double kmer_multipleDB::calculate_kmer_score(
 		const size_t kmer_index, 
-		const vector<uint64> &scores, 
+		const vector<uint64_t> &scores, 
 		const double score_sum,
-		const uint64 min_in_group
+		const uint64_t min_in_group
 		) const {
-	uint64 bit, N1(0), Ex1(0), N0;
+	uint64_t bit, N1(0), Ex1(0), N0;
 	double N=(double)scores.size();
 	size_t container_i = kmer_index*m_hash_words;
-	for(uint64 i=0; i<scores.size(); i++) {
-		uint64 hashmap_i = (i>>6);
-		uint64  bit_i = i&63;
+	for(uint64_t i=0; i<scores.size(); i++) {
+		uint64_t hashmap_i = (i>>6);
+		uint64_t  bit_i = i&63;
 
 		bit = (m_kmers_table[container_i+hashmap_i] >> bit_i)&1;
 		N1 = N1+bit;
@@ -284,28 +305,32 @@ kmer_heap::kmer_heap(size_t max_results):
 	m_best_kmers(),
 	cnt_kmers(0),
 	cnt_pops(0),
-	cnt_push(0) {
+	cnt_push(0),
+	lowest_score(0){
 	}
 
 
 ///
 /// @brief  add_kmer - add a new kmer to the heap
-/// @param  
+/// @param  k - kmer
+//			score - kmers score
+//			kmer_row - number of the row in kmers table (will be useful for retrieving the kmer)
 /// @return 
 ///
-void kmer_heap::add_kmer(const uint64 &k, const double &score) {
-	const static cmp_second compare_func;
+void kmer_heap::add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row) {
 	cnt_kmers++;
-	if(m_best_kmers.size() < m_n_res) {
-		m_best_kmers.push(kmer_score(k, score));
+	if(m_best_kmers.size() < m_n_res) { // if heap is not full
+		m_best_kmers.push(kmer_score(k, score, kmer_row));
 		cnt_push++;
+		lowest_score = get<1>(m_best_kmers.top());
 	} else {
-		kmer_score new_res(k, score);
-		if(compare_func(new_res, m_best_kmers.top())) {
+		if(score > lowest_score) {
+			kmer_score new_res(k, score, kmer_row);
 			cnt_pops++;
 			cnt_push++;
 			m_best_kmers.pop();
 			m_best_kmers.push(new_res);
+			lowest_score = get<1>(m_best_kmers.top());
 		}
 	}
 }
@@ -320,7 +345,7 @@ void kmer_heap::output_to_file(const string &filename) const {
 	kmer_score_priority_queue temp_queue(m_best_kmers);
 	ofstream of(filename, ios::binary);
 	while(!temp_queue.empty()) {
-		of.write(reinterpret_cast<const char *>(&temp_queue.top().first), sizeof(uint64));
+		of.write(reinterpret_cast<const char *>(&get<0>(temp_queue.top())), sizeof(uint64_t));
 		temp_queue.pop();
 	}
 	of.close();
@@ -334,8 +359,8 @@ void kmer_heap::output_to_file_with_scores(const std::string &filename) const {
 	kmer_score_priority_queue temp_queue(m_best_kmers);
 	ofstream of(filename, ios::binary);
 	while(!temp_queue.empty()) {
-		of.write(reinterpret_cast<const char *>(&temp_queue.top().first), sizeof(uint64));
-		of.write(reinterpret_cast<const char *>(&temp_queue.top().second), sizeof(double));
+		of.write(reinterpret_cast<const char *>(&get<0>(temp_queue.top())), sizeof(uint64_t));
+		of.write(reinterpret_cast<const char *>(&get<1>(temp_queue.top())), sizeof(double));
 		temp_queue.pop();
 	}
 	of.close();
@@ -350,11 +375,28 @@ kmer_set kmer_heap::get_kmer_set() const {
 
 	kmer_score_priority_queue temp_queue(m_best_kmers);
 	while(!temp_queue.empty()) {
-		res.insert(temp_queue.top().first);
+		res.insert(get<0>(temp_queue.top()));
 		temp_queue.pop();
 	}
 	return res;
 }
+kmers_output_list kmer_heap::get_kmers_for_output(const size_t &kmer_len) const {
+	kmers_output_list res;
+	res.next_index = 0;
+	
+	kmer_score_priority_queue temp_queue(m_best_kmers);
+	while(!temp_queue.empty()) {
+		res.list.push_back(make_tuple(
+					bits2kmer31(get<0>(temp_queue.top()),kmer_len) + "_" + to_string(temp_queue.size()),
+					get<2>(temp_queue.top())));
+		temp_queue.pop();
+	}
+	
+	// sort list
+	sort(begin(res.list), end(res.list), [](auto const &t1, auto const &t2) {
+			        return get<1>(t1) < get<1>(t2);});
+	return res;
+}	
 
 /// @bried	output the status (pop/ push/ size) of the heap to stderr
 void kmer_heap::plot_stat() const { 
@@ -427,22 +469,22 @@ void kmer_multipleDB_merger::clear_content() {
  *			so the last threshold is 001111111...111 = 0x3FFFFF...FF
  * @return  
  */
-void kmer_multipleDB_merger::load_kmers(const uint64 &iter, const uint64 &total_iter, const kmer_set &set_kmers) {
+void kmer_multipleDB_merger::load_kmers(const uint64_t &iter, const uint64_t &total_iter, const kmer_set &set_kmers) {
 	// as k-mers are 31 bp - the largest possible value is 0011111111...1111
-	uint64 current_threshold = ((1ull << (m_kmer_len*2ull))-1ull);
+	uint64_t current_threshold = ((1ull << (m_kmer_len*2ull))-1ull);
 	current_threshold = ((current_threshold / total_iter)+1)*iter;
 	cerr << iter << " / " << total_iter << "\t:\t" << bitset<WLEN>(current_threshold) << endl;
 
 	clear_content();
 	my_hash::iterator it_hash;
 
-	uint64 index; 
+	uint64_t index; 
 	for(size_t acc_i = 0; acc_i < m_accessions; ++acc_i) {
 		cerr << total_iter << "\t" << iter << "\t" << acc_i << endl; 
 		size_t hashmap_i = acc_i / WLEN; // which word to use
 		size_t bit_i = acc_i % WLEN; // which bit in word to use
 
-		uint64 or_val = 1ull << bit_i; // create the word to use for modifying
+		uint64_t or_val = 1ull << bit_i; // create the word to use for modifying
 
 		// Reading new-kmers from file
 		m_DBs[acc_i].read_sorted_kmers(m_kmer_temp, current_threshold); // m_kmer_temp is emptied in func'

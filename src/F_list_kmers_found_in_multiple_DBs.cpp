@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
 	/* Defining variables to use while going over the k-mers */
 	cerr << "k-mer length " << atoi(argv[4]) << endl;
 	CKmerAPI_YV kmer_obj(atoi(argv[4]));
-	vector<uint64> k_mers;
+	vector<uint64_t> k_mers;
 	uint kmer_counter;
 	my_hash::iterator it_hash;
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 	}
 	/* sort all k-mers */
 	k_mers.resize(0);
-	vector<uint64> shareness(db_handles.size()+1, 0);
+	vector<uint64_t> shareness(db_handles.size()+1, 0);
 	for(auto it : main_db) {
 		if(it.second > db_handles.size()) {
 			cout << "Error! " << bitset<64>(it.first) << "\t" << it.second << endl;

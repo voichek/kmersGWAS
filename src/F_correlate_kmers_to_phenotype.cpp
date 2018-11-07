@@ -20,32 +20,20 @@
 ///=====================================================================================
 ///
 
-
-/**
- * @brief 19/07/2018 - How to build for prototype
- * 
- * Initialy I am going to run all in one program no threads nor parallelization
- * Also all phenotypes and accession will be the same and ordered
- * all the needed complications will come in the next goes
- */
-
-#include <utility> //std::pair
 #include "kmer_general.h"
-#include "kmer_DB.h"
 #include "kmer_multipleDB.h"
 
-#include <boost/program_options.hpp>
-namespace po = boost::program_options;
-
+#include <algorithm>    // 
 #include <iostream>
 #include <iterator>
-#include <algorithm>    // 
-#include <cstdlib>      // std::rand, std::srand
+#include <utility> //std::pair
 
-#include "../include/CTPL/ctpl_stl.h" //thread pool library
+#include <boost/program_options.hpp>
+
+#include "CTPL/ctpl_stl.h" //thread pool library
+
 using namespace std;
-
-
+namespace po = boost::program_options;
 
 ///
 /// @brief  Loading phenotype values from file
@@ -192,11 +180,11 @@ bool is_double_uint(const double &x) {
 }
 
 // This is
-vector<uint64> make_list_uint64(const vector<double> &l) {
-	vector<uint64> res(l.size());
+vector<uint64_t> make_list_uint64(const vector<double> &l) {
+	vector<uint64_t> res(l.size());
 	for(size_t i=0; i<l.size(); i++) {
 		if(is_double_uint(l[i]))
-			res[i] = (uint64)l[i];
+			res[i] = (uint64_t)l[i];
 		else
 			throw std::logic_error("Got a value " + to_string(l[i]) + " need to get unsigned integers");
 	}
@@ -226,6 +214,10 @@ int main(int argc, char* argv[])
 			 "Max number of threads to use")
 			("kmer_len",			po::value<uint32_t>(), 
 			 "Length of the k-mers")
+			("maf",			po::value<double>()->default_value(0.05), 
+			 "Minor allele frequency")
+			("mac",			po::value<size_t>()->default_value(5), 
+			 "Minor allele count")
 			;
 
 		/* parse the command line */
@@ -263,6 +255,8 @@ int main(int argc, char* argv[])
 		ctpl::thread_pool tp(vm["parallel"].as<size_t>());
 
 		uint32_t kmer_length = vm["kmer_len"].as<uint32_t>();
+		double maf = vm["maf"].as<double>();
+		size_t mac = vm["mac"].as<size_t>();
 
 		// Load DB paths
 		vector<KMC_db_handle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
@@ -283,7 +277,7 @@ int main(int argc, char* argv[])
 				get_DBs_names(DB_paths),
 				p_list[0].first, 
 				kmer_length);
-		
+
 		kmer_multipleDB multiDB_step2(
 				vm["kmers_table"].as<string>(),
 				get_DBs_names(DB_paths),
@@ -296,37 +290,40 @@ int main(int argc, char* argv[])
 		/****************************************************************************************************
 		 *	Load all k-mers and presence/absence information and correlate with phenotypes
 		 ***************************************************************************************************/
-		cerr << "[TIMING]\tBEFORE LOADING\t" << ((get_time() - t0)/60) << endl;
-		size_t min_count = (p_list[0].first.size()+20-1)/20; // MAF of 5% - maybe should make this parameter external
-		if(min_count < 5)
-			min_count = 5;
-		cerr << "min_count = " << min_count << endl;
-//		for(uint64 i=1; i<=n_steps; i++)
+		size_t min_count = ceil(double(p_list[0].first.size())*maf); // MAF of 5% - maybe should make this parameter external
+		if(min_count < mac)
+			min_count = mac;
+
+		cerr << "Min count to associate = " << min_count << endl;
 		size_t batch_index = 0;
 		while(multiDB.load_kmers(batch_size)) { 
+			cerr << "Associating k-mers, part: " <<  batch_index << endl; 
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
 				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
 						multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
 			}
 			for(size_t j=0; j<(phenotypes_n); j++) {
 				tp_results[j].get();
-				cerr << batch_index << "\t"; k_heap[j].plot_stat(); // heap status
+				cerr << ".";
+				cerr.flush();
 			}
+			cerr << endl;
 			batch_index++;
 		}
+
 		cerr << "[TIMING]\tAFTER LOADING\t" << ((get_time() - t0)/60) << endl;
 		// close DBs, and release space ??
 		/****************************************************************************************************
 		 *	save best k-mers to files and create set of k-mers from heaps (and clear heaps)	
 		 ***************************************************************************************************/
-		vector<kmer_set> best_kmers;	
+		vector<kmers_output_list> best_kmers;	
 		cerr << "[TIMING]\tBEFORE SAVING\t" << ((get_time() - t0)/60) << endl;
 		for(size_t j=0; j<(phenotypes_n); j++) {
 			string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
 			k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
 
 			// Create set of best k-mers
-			best_kmers.push_back(k_heap[j].get_kmer_set());
+			best_kmers.push_back(k_heap[j].get_kmers_for_output(kmer_length));
 			k_heap[j].empty_heap(); // clear heap
 		}
 		cerr << "[TIMING]\tAFTER SAVING\t" << ((get_time() - t0)/60) << endl;
@@ -344,13 +341,16 @@ int main(int argc, char* argv[])
 		cerr << "[TIMING]\tOPENED PLINK FILES\t" << ((get_time() - t0)/60) << endl;
 
 		// Reload k-mers to create plink bed/bim files
-		//for(uint64 i=1; i<=n_steps ; i++) { // Notice here index from 1 and not 0 (might worth changing) 
 		batch_index = 0;
 		while(multiDB_step2.load_kmers(batch_size)) { 
+			cerr << "Saving k-mers, part: " <<  batch_index << endl; 
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
-				multiDB_step2.output_plink_bed_file(plink_output[j], best_kmers[j]); // parallel ?
-				cerr << batch_index  << endl; 
+				best_kmers[j].next_index = 
+					multiDB_step2.output_plink_bed_file(plink_output[j], best_kmers[j].list, best_kmers[j].next_index); // parallel ?
+				cerr << ".";
+				cerr.flush();	
 			}
+			cerr << endl;
 			batch_index++;
 		}
 		cerr << "[TIMING]\tWROTE PLINK FILES\t" << ((get_time() - t0)/60) << endl;

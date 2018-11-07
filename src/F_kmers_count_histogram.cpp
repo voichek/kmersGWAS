@@ -28,10 +28,10 @@ int main(int argc, char *argv[]) {
 	string db_name(argv[2]);
 	kmer_DB acc_kmers(dir_path, db_name, atoi(argv[3]));
 
-	std::vector<std::size_t> counters = acc_kmers.calculate_kmers_counts_histogram();
+	vector<size_t> counters = acc_kmers.calculate_kmers_counts_histogram();
 	
 	cout << "appearance\tcount" << endl;
-	for(std::size_t i=0; i<counters.size(); i++) 
+	for(size_t i=0; i<counters.size(); i++) 
 		cout << i << "\t" << counters[i] << endl;											
 	
 	return 0;

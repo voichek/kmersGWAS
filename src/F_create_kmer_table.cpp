@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 	cerr << "open file" << endl;
 	ofstream fout(argv[3], ios::binary);
 	merger.output_table_header(fout);	
-	uint64 total_iter = 5000;
+	uint64_t total_iter = 5000;
 	for(uint i=1; i<=total_iter; i++) {
 		cerr << i << " - " << total_iter << " : Loading k-mers" << endl;
 		merger.load_kmers(i, total_iter);

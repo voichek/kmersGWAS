@@ -20,9 +20,9 @@ class kmer_DB_sorted_file {
 	void open_file(const std::string &filename);
 	void close_file();
 	
-	void load_kmers_upto_x(const uint64 &threshold, std::vector<uint64> &kmers);
+	void load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers);
 
-	uint64 get_kmer_count(); // get the number of kmers in the file
+	uint64_t get_kmer_count() {return m_kmers_in_file;} // get the number of kmers in the file
 
 	private:
 	void init();
@@ -30,9 +30,9 @@ class kmer_DB_sorted_file {
 
 	// variabled for reading sorted kmer file
 	std::ifstream m_fin;			// handle to file
-	uint64 m_last_kmer;		// last kmer loaded
-	uint64 m_kmers_in_file; // number of k-mers in file (calcluated once in init)
-	uint64 m_kmers_count;			// last kmer index in file
+	uint64_t m_last_kmer;		// last kmer loaded
+	uint64_t m_kmers_in_file; // number of k-mers in file (calcluated once in init)
+	uint64_t m_kmers_count;			// last kmer index in file
 };
 
 
@@ -63,7 +63,7 @@ class kmer_DB {
 		m_sorted_kmers_f.open_file(m_dir_path + "/" + filename);}
 
 	// reads all k-mers until getting to somethreshold
-	void read_sorted_kmers(std::vector<uint64> &kmers, uint64 threshold = 0xFFFFFFFFFFFFFFFF) {
+	void read_sorted_kmers(std::vector<uint64_t> &kmers, uint64_t threshold = 0xFFFFFFFFFFFFFFFF) {
 		m_sorted_kmers_f.load_kmers_upto_x(threshold, kmers); }
 	// Counts how many times each k-mer appeared and plot to std::cout
 	std::vector<std::size_t> calculate_kmers_counts_histogram();

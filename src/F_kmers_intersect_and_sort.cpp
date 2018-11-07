@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 	cerr << "Hash set size = " << kmer_list_to_use.size() << endl;
 	
 	/* Go over all input DBs and intersect k-mers with given list */
-	for(uint64 i=0; i<db_handles.size(); i++) {
+	for(uint64_t i=0; i<db_handles.size(); i++) {
 		cerr << i << ". Opening DB: " << db_handles[i].name << endl;
 		kmer_DB cur_acc(db_handles[i].dir_path, db_handles[i].name, atoi(argv[4]));
 		cur_acc.intersect_kmers(kmer_list_to_use, base_output_filename);

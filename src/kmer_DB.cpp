@@ -1,9 +1,7 @@
 #include "kmer_DB.h"
 #include <fstream>
 
-using google::dense_hash_set;
 using namespace std;
-
 
 kmer_DB::kmer_DB(const string& dir_path, const string& db_name, const uint32& kmer_length):
 	m_db_name(db_name),
@@ -26,9 +24,9 @@ void kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_nam
 	CKmerAPI_YV kmer_obj(m_kmer_len);
 
 	unsigned int counter;
-	uint64 cnt_f = 0, cnt_nf = 0, kmer;
+	uint64_t cnt_f = 0, cnt_nf = 0, kmer;
 
-	vector<uint64> kmers;
+	vector<uint64_t> kmers;
 	while(kmer_database.ReadNextKmer(kmer_obj, counter)) {
 		kmer = kmer_obj.to_uint();
 		if(lookup_x(kmers_to_use, kmer)) {
@@ -38,7 +36,7 @@ void kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_nam
 	}
 	// Sort kmers 
 	sort(kmers.begin(), kmers.end());
-	for(vector<uint64>::const_iterator it = kmers.begin(); it != kmers.end(); ++it) 
+	for(vector<uint64_t>::const_iterator it = kmers.begin(); it != kmers.end(); ++it) 
 		of.write(reinterpret_cast<const char *>(&(*it)), sizeof(*it));
 
 	of.close();
@@ -66,12 +64,9 @@ CKMCFile kmer_DB::get_KMC_handle() {
 	return kmer_database;
 }
 
-
-
 /**
  * Definition of class kmer_DB_sorted_file member functions
  */
-
 kmer_DB_sorted_file::kmer_DB_sorted_file():
 	m_fin(),
 	m_last_kmer(NULL_KEY),
@@ -130,7 +125,7 @@ void kmer_DB_sorted_file::read_kmer() {
 }
 
 
-void kmer_DB_sorted_file::load_kmers_upto_x(const uint64 &threshold, std::vector<uint64> &kmers) {
+void kmer_DB_sorted_file::load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers) {
 	if(!m_fin.is_open()) {
 		throw std::logic_error("Trying to read k-mers from a non-open file.");
 	}
@@ -144,10 +139,6 @@ void kmer_DB_sorted_file::load_kmers_upto_x(const uint64 &threshold, std::vector
 			kmers.push_back(m_last_kmer); // So we won't read the lasy k-mer twice
 		m_last_kmer = NULL_KEY;
 	}
-}
-
-uint64 kmer_DB_sorted_file::get_kmer_count() { // get the number of kmers in the file
-	return m_kmers_in_file;
 }
 
 

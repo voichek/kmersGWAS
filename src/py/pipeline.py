@@ -32,6 +32,7 @@ paths["assoicte_kmers"] = paths["base_path"] + "bin/F_correlate_kmers_to_phenoty
 paths["Permute_phenotype"] = paths["base_path"] + "src/R/transform_and_permute_phenotypes.R"
 paths["kinship_intersect_script"] = paths["base_path"] + "src/py/align_kinship_phenotype.py"
 paths["parser_script"] = paths["base_path"] + "src/py/pipeline_parser.py"
+paths["average_pheno_script"] = paths["base_path"] + "src/awk/average_phenotypes.awk"
 
 ####################################################################################################
 execfile(paths["gen_script"])
@@ -54,7 +55,9 @@ def main():
         print "Copying phenotype data to directory"
     
     paths["pheno_orig_fn"] = "%s/%s.original_pheno" % (args.outdir, args.name)
-    os.system("cp %s %s" % (get_file(args.fn_phenotype), paths["pheno_orig_fn"]))
+#    os.system("cp %s %s" % (get_file(args.fn_phenotype), paths["pheno_orig_fn"]))
+    os.system("cat %s | tail -n +2 | awk -f %s > %s" % \
+            (get_file(args.fn_phenotype),paths["average_pheno_script"],paths["pheno_orig_fn"]))
 
 
     # Information on SNPs dataset
@@ -87,9 +90,11 @@ def main():
     # Transformation of the phenotypes and creating permutations of phenotype
     paths["pheno_permuted_fn"] = "%s/%s.permuted_pheno" % (args.outdir, args.name)
     paths["pheno_permuted_transformed_fn"] = "%s/%s.permuted_transformed_pheno" % (args.outdir, args.name)
-    cur_cmd = "Rscript %s %s %s %d %s %s"
+    paths["EMMA_perm_log_fn"] = "%s/EMMA_perm.log" % (args.outdir)
+
+    cur_cmd = "Rscript %s %s %s %d %s %s %s"
     cur_cmd = cur_cmd % (paths["Permute_phenotype"] , paths["pheno_intersected_fn"], paths["kinship_ibs_fn"],\
-           args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"] )
+           args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"], paths["EMMA_perm_log_fn"])
     if args.verbose:
         print "RUN: ", cur_cmd
     os.system(cur_cmd)
@@ -145,23 +150,22 @@ def main():
         #building a fam file to run vs. all snps (so it will be expanded to the 1135 format)
         orig_fam_acc = get_column(paths["snps_fam"], 0, " ")
         cur_fam_acc = get_column(paths["pheno_permuted_fn"], 0, "\t")[1:]
-            
-        cur_fam_pheno = [get_column(paths["pheno_permuted_fn"],i+1, "\t")[1:] for i in range(PERM_N+1)]
+        cur_fam_pheno = [get_column(paths["pheno_permuted_fn"],i+1, "\t")[1:] for i in range(args.n_permutations+1)]
         fout = file("%s.fam" % paths["snps_table_fn"], "w")
         for (i, acc_n) in enumerate(orig_fam_acc):
             fout.write("%s %s 0 0 0" % (acc_n, acc_n))
             if acc_n in cur_fam_acc:
-                for p_ind in range(PERM_N+1):
+                for p_ind in range(args.n_permutations+1):
                     fout.write(" %s" % cur_fam_pheno[p_ind][cur_fam_acc.index(acc_n)])
             else:
-                for p_ind in range(PERM_N+1):
+                for p_ind in range(args.n_permutations+1):
                     fout.write(" -9")
             fout.write("\n")
         fout.close()
         # run gemma (using the full kinship matrix ofcourse...)
         for (p_ind, p_name) in enumerate(phenotypes_names):
             cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf 0.05 -miss 0.5 &" % \
-                    (args.gemma_path, paths["snps_table_fn"],  paths["kinship_gemma_fn"], \
+                    (args.gemma_path, paths["snps_table_fn"], args.kinship_GEMMA, \
                     paths["snps_associations_dir"] + "/output", \
                     p_name, p_ind+1)
             while count_running_gemma() >= (args.parallel-1):

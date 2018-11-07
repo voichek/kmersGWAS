@@ -21,14 +21,11 @@
 #ifndef KMER_MULTIPLEDB
 #define KMER_MULTIPLEDB
 
-#include <queue>
 
 #include "kmer_general.h"
 #include "kmer_DB.h"
 
 class kmer_heap;
-struct bedbim_handle; 
-
 /**
  * @class kmer_multipleDB
  * @brief class holds the information of presence/absence of k-mers
@@ -49,8 +46,8 @@ class kmer_multipleDB {
 		~kmer_multipleDB() {} // desctructor (Dtor of kmer_DB will close the open files)
 
 		// load k-mers from sorted files part of the kmer set
-		bool load_kmers(const uint64 &batch_size, const kmer_set &set_kmers_to_use);
-		inline bool load_kmers(const uint64 &batch_size)
+		bool load_kmers(const uint64_t &batch_size, const kmer_set &set_kmers_to_use);
+		inline bool load_kmers(const uint64_t &batch_size)
 		{return load_kmers(batch_size, kmer_set());}
 		inline bool load_kmers() {return load_kmers(NULL_KEY);} // load all k-mers in file
 		inline bool load_kmers(const kmer_set &set_kmers_to_use)
@@ -63,8 +60,9 @@ class kmer_multipleDB {
 		void output_plink_bed_file(bedbim_handle &f, const kmer_set &set_kmers) const;
 		inline void output_plink_bed_file(bedbim_handle &f) const 
 		{output_plink_bed_file(f, kmer_set());}
+		size_t output_plink_bed_file(bedbim_handle &f, const std::vector<kmer_output> &kmer_list, size_t index) const;
 
-		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<uint64> &scores, 
+		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<uint64_t> &scores, 
 				const std::size_t &min_cnt) const;
 
 
@@ -86,13 +84,13 @@ class kmer_multipleDB {
 		std::ifstream m_kmer_table_file;		// Handel to the table file
 		std::size_t m_hash_words_db_file;		// Number of words for "row" in the table file
 		std::size_t m_hash_words;			// Number of words for "row" in memory table
-		std::vector<uint64> m_kmers;			// List of k-mers (row names)
-		std::vector<uint64> m_kmers_table;		// Memort table content
+		std::vector<uint64_t> m_kmers;			// List of k-mers (row names)
+		std::vector<uint64_t> m_kmers_table;		// Memort table content
 		uint32 m_kmer_len;				// k-mer length
 		std::size_t m_left_in_file;			// Number of bytes in table file not read
 		std::size_t m_kmer_number;			// Number of k-mers in table file not read
 		std::size_t m_kmer_loaded;			// Number of k-mers loaded
-
+		std::size_t m_row_offset;			// Number of k-mers loaded, not including the current batch
 		/* Variables for mapping between table in file to saved table in class */
 		std::vector<std::size_t> m_map_word_index;	// Word index in table file
 		std::vector<std::size_t> m_map_bit_index;	// Bit index in the word
@@ -103,21 +101,13 @@ class kmer_multipleDB {
 		void create_map_from_all_DBs();
 		double calculate_kmer_score(
 				const std::size_t kmer_index, 
-				const std::vector<uint64> &scores, 
+				const std::vector<uint64_t> &scores, 
 				const double score_sum,
-				const uint64 min_in_group = 5) const; 
+				const uint64_t min_in_group = 5) const; 
+		void write_PA(const std::string &name, const size_t &kmer_i, bedbim_handle &f) const;
 };
 
 /***********************************************************************************************************/
-typedef std::pair<uint64, double> kmer_score;
-
-struct cmp_second
-{
-	inline bool operator() (const kmer_score& left, const kmer_score& right) const
-	{return (left.second*left.second) > (right.second*right.second);} 
-};
-
-typedef std::priority_queue<kmer_score, std::vector<kmer_score>, cmp_second> kmer_score_priority_queue;
 /**
  * @class kmer_heap
  * @brief save a priority score of kmers
@@ -125,7 +115,7 @@ typedef std::priority_queue<kmer_score, std::vector<kmer_score>, cmp_second> kme
 class kmer_heap {
 	public:
 		kmer_heap(std::size_t max_results);
-		void add_kmer(const uint64 &k, const double &score);
+		void add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row);
 
 		void output_to_file(const std::string &filename) const;
 		void output_to_file_with_scores(const std::string &filename) const;
@@ -133,16 +123,16 @@ class kmer_heap {
 		// (not only the ones we keep)
 		void plot_stat() const;
 		inline void empty_heap() {m_best_kmers = kmer_score_priority_queue();} // empty heap content
-		kmer_set get_kmer_set() const;	
+		kmer_set get_kmer_set() const;
+		kmers_output_list get_kmers_for_output(const size_t &kmer_len) const;	
 	private:
 		std::size_t m_n_res;
 		kmer_score_priority_queue m_best_kmers; // heap that will contain the scores
-		//		std::priority_queue<kmer_score, std::vector<kmer_score>, cmp_second> m_best_kmers;
 		size_t cnt_kmers;
 		size_t cnt_pops;
-		size_t cnt_push;	
+		size_t cnt_push;
+		double lowest_score;	
 };
-
 
 
 /**
@@ -164,8 +154,8 @@ class kmer_multipleDB_merger {
 		~kmer_multipleDB_merger() {} // desctructor (Dtor of kmer_DB will close the open files)
 
 		// load k-mers from sorted files part of the kmer set
-		void load_kmers(const uint64 &iter, const uint64 &total_iter, const kmer_set &set_kmers_to_use);
-		inline void load_kmers(const uint64 &iter, const uint64 &total_iter)
+		void load_kmers(const uint64_t &iter, const uint64_t &total_iter, const kmer_set &set_kmers_to_use);
+		inline void load_kmers(const uint64_t &iter, const uint64_t &total_iter)
 		{load_kmers(iter, total_iter, kmer_set());}
 		inline void load_kmers() {load_kmers(1ull,1ull);} // load all k-mers in file
 		inline void load_kmers(const kmer_set &set_kmers_to_use)
@@ -179,35 +169,19 @@ class kmer_multipleDB_merger {
 	private:                                
 		std::vector<kmer_DB> m_DBs; // handles to the k-mer files
 		std::vector<std::string> m_db_names; // names of the used DBs (accession indices)
-		std::vector<uint64> m_kmer_temp; // temp vector to hold read k-mers
+		std::vector<uint64_t> m_kmer_temp; // temp vector to hold read k-mers
 		std::size_t m_accessions; // Number of accessions
 
 		std::size_t m_hash_words; // How many words we need to hold the k-mers
 	
 		my_hash kmers_to_index;
-		std::vector<uint64> container;
+		std::vector<uint64_t> container;
 
 		uint32 m_kmer_len;
 
 		kmer_DB_sorted_file m_possible_kmers;
 };
 
-/**
- * @struct bedbim_handle
- * @brief  holds handles to a bed & bim files (and write the header of the bed file)
- */
-struct bedbim_handle {
-	bedbim_handle(const std::string &base_name):
-		f_bed(base_name + ".bed",std::ios::binary),
-		f_bim(base_name + ".bim", std::ios::out) 
-	{ f_bed << (char)0x6C << (char)(0x1B) << (char)(0x01);} // header of bed file
-	~bedbim_handle() {close();}
-	bedbim_handle(bedbim_handle&& o) = default;
-	void close();
-
-	std::ofstream f_bed;
-	std::ofstream f_bim;
-};
 
 #endif
 
