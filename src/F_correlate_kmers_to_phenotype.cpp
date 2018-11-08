@@ -296,7 +296,7 @@ int main(int argc, char* argv[])
 
 		cerr << "Min count to associate = " << min_count << endl;
 		size_t batch_index = 0;
-		while(multiDB.load_kmers(batch_size)) { 
+		while(multiDB.load_kmers(batch_size) && (batch_index < NULL_KEY)) { 
 			cerr << "Associating k-mers, part: " <<  batch_index << endl; 
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
 				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
@@ -342,7 +342,7 @@ int main(int argc, char* argv[])
 
 		// Reload k-mers to create plink bed/bim files
 		batch_index = 0;
-		while(multiDB_step2.load_kmers(batch_size)) { 
+		while(multiDB_step2.load_kmers(batch_size)) {
 			cerr << "Saving k-mers, part: " <<  batch_index << endl; 
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
 				best_kmers[j].next_index = 

@@ -21,6 +21,7 @@
 #include "kmer_multipleDB.h"
 
 #include <math.h>
+#include "nmmintrin.h" //_mm_popcnt_u64 
 #include <algorithm>
 #include <bitset>
 #include <numeric>
@@ -237,8 +238,11 @@ size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kme
 ////			names_scores - name of the DB the score is relevant to
 ///// @return 
 /////
-void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, const vector<uint64_t> &scores, 
+void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, vector<uint64_t> scores, 
 		const size_t &min_cnt) const {
+	// Due to efficency consideration we pass scores not by reference and change it to be a multiplication of
+	// word size (saving many not neccessery "if" in the scoring procedure)
+	scores.resize(m_hash_words*sizeof(uint64_t)*8, 0); 
 	uint64_t sum_scores(0);
 	for(size_t i=0; i<scores.size(); i++) 
 		sum_scores += scores[i];
@@ -265,27 +269,38 @@ void kmer_multipleDB::create_map_from_all_DBs() {
 	}
 }
 
-
+#pragma GCC push_options
+#pragma GCC optimize ("unroll-loops")
 double kmer_multipleDB::calculate_kmer_score(
 		const size_t kmer_index, 
-		const vector<uint64_t> &scores, 
+		const vector<uint64_t> &scores, // Scores has to be a multiplication of wordsize (64) 
 		const double score_sum,
 		const uint64_t min_in_group
 		) const {
 	uint64_t bit, N1(0), Ex1(0), N0;
-	double N=(double)scores.size();
+//	double N=(double)scores.size();
+	double N=(double)m_accessions;
 	size_t container_i = kmer_index*m_hash_words;
-	for(uint64_t i=0; i<scores.size(); i++) {
-		uint64_t hashmap_i = (i>>6);
-		uint64_t  bit_i = i&63;
-
-		bit = (m_kmers_table[container_i+hashmap_i] >> bit_i)&1;
-		N1 = N1+bit;
-		bit = -bit; // so bit will be a mask
-
-		Ex1 += scores[i]&bit;
+	/* The following section is where my program is most of the time */
+	size_t i=0;
+	//	for(uint64_t i=0; i<scores.size(); i++) {
+	for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++) {
+		//		uint64_t hashmap_i = (i>>6);
+		//		uint64_t  bit_i = i&63;
+		uint64_t word = m_kmers_table[container_i+hashmap_i];
+		N1 += _mm_popcnt_u64(word);
+		for(uint64_t bit_i=0; bit_i<(8*sizeof(uint64_t)); bit_i++) {
+			//		bit = (m_kmers_table[container_i+hashmap_i] >> bit_i)&1;
+			bit = word & 1;
+//			N1 = N1+bit;
+			bit = -bit; // so bit will be a mask
+			Ex1 += scores[i]&bit;
+			word = (word>>1);		
+			i++;
+		}
 	}
-	N0 = scores.size() - N1;
+	/* End of critical section */
+	N0 = m_accessions - N1;
 	if((min_in_group<=N0) && (min_in_group <= N1)) {
 		double sum_gi = (double)N1;
 		double yigi = (double)Ex1;
@@ -294,6 +309,7 @@ double kmer_multipleDB::calculate_kmer_score(
 		return r / (N*sum_gi - sum_gi*sum_gi);
 	} else {return 0;}
 }
+#pragma GCC pop_options
 
 ///
 /// @brief  Ctor of kmer_heap initialized the priority queue

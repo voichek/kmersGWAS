@@ -62,7 +62,7 @@ class kmer_multipleDB {
 		{output_plink_bed_file(f, kmer_set());}
 		size_t output_plink_bed_file(bedbim_handle &f, const std::vector<kmer_output> &kmer_list, size_t index) const;
 
-		void add_kmers_to_heap(kmer_heap &kmers_and_scores, const std::vector<uint64_t> &scores, 
+		void add_kmers_to_heap(kmer_heap &kmers_and_scores, std::vector<uint64_t> scores, 
 				const std::size_t &min_cnt) const;
 
 
