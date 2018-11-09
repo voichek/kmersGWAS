@@ -238,18 +238,17 @@ size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kme
 ////			names_scores - name of the DB the score is relevant to
 ///// @return 
 /////
-void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, vector<uint64_t> scores, 
+void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, vector<float> scores, 
 		const size_t &min_cnt) const {
 	// Due to efficency consideration we pass scores not by reference and change it to be a multiplication of
 	// word size (saving many not neccessery "if" in the scoring procedure)
 	scores.resize(m_hash_words*sizeof(uint64_t)*8, 0); 
-	uint64_t sum_scores(0);
+	float sum_scores(0);
 	for(size_t i=0; i<scores.size(); i++) 
 		sum_scores += scores[i];
-	double d_sum_scores = (double)sum_scores;
 	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++)
 		kmers_and_scores.add_kmer(m_kmers[kmer_index], 
-				calculate_kmer_score(kmer_index, scores, d_sum_scores,  min_cnt),
+				calculate_kmer_score(kmer_index, scores, sum_scores,  min_cnt),
 				m_row_offset + kmer_index);
 }
 
@@ -273,28 +272,22 @@ void kmer_multipleDB::create_map_from_all_DBs() {
 #pragma GCC optimize ("unroll-loops")
 double kmer_multipleDB::calculate_kmer_score(
 		const size_t kmer_index, 
-		const vector<uint64_t> &scores, // Scores has to be a multiplication of wordsize (64) 
-		const double score_sum,
+		const vector<float> &scores, // Scores has to be a multiplication of wordsize (64) 
+		const float score_sum,
 		const uint64_t min_in_group
 		) const {
-	uint64_t bit, N1(0), Ex1(0), N0;
-//	double N=(double)scores.size();
+	uint64_t bit, N1(0), N0;
+	float Ex1(0);
 	double N=(double)m_accessions;
 	size_t container_i = kmer_index*m_hash_words;
 	/* The following section is where my program is most of the time */
 	size_t i=0;
-	//	for(uint64_t i=0; i<scores.size(); i++) {
 	for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++) {
-		//		uint64_t hashmap_i = (i>>6);
-		//		uint64_t  bit_i = i&63;
 		uint64_t word = m_kmers_table[container_i+hashmap_i];
 		N1 += _mm_popcnt_u64(word);
 		for(uint64_t bit_i=0; bit_i<(8*sizeof(uint64_t)); bit_i++) {
-			//		bit = (m_kmers_table[container_i+hashmap_i] >> bit_i)&1;
 			bit = word & 1;
-//			N1 = N1+bit;
-			bit = -bit; // so bit will be a mask
-			Ex1 += scores[i]&bit;
+			Ex1 += (scores[i]*bit);
 			word = (word>>1);		
 			i++;
 		}

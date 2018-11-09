@@ -62,7 +62,7 @@ class kmer_multipleDB {
 		{output_plink_bed_file(f, kmer_set());}
 		size_t output_plink_bed_file(bedbim_handle &f, const std::vector<kmer_output> &kmer_list, size_t index) const;
 
-		void add_kmers_to_heap(kmer_heap &kmers_and_scores, std::vector<uint64_t> scores, 
+		void add_kmers_to_heap(kmer_heap &kmers_and_scores, std::vector<float> scores, 
 				const std::size_t &min_cnt) const;
 
 
@@ -101,8 +101,8 @@ class kmer_multipleDB {
 		void create_map_from_all_DBs();
 		double calculate_kmer_score(
 				const std::size_t kmer_index, 
-				const std::vector<uint64_t> &scores, 
-				const double score_sum,
+				const std::vector<float> &scores, 
+				const float score_sum,
 				const uint64_t min_in_group = 5) const; 
 		void write_PA(const std::string &name, const size_t &kmer_i, bedbim_handle &f) const;
 };

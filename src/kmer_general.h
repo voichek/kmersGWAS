@@ -51,8 +51,8 @@ struct KMC_db_handle {
 	std::string name;
 };
 
-typedef std::pair <std::vector<std::string>, std::vector<double> > phenotype_list;
-typedef std::pair <std::vector<std::string>, std::vector<uint64_t> > uint64_phenotype_list;
+//typedef std::pair <std::vector<std::string>, std::vector<double> > phenotype_list;
+typedef std::pair <std::vector<std::string>, std::vector<float> > phenotype_list;
 
 // Func: return the full path of a KMD db from its handle
 inline std::string KMC_db_full_path(const KMC_db_handle &h) { return h.dir_path + "/" + h.name;}

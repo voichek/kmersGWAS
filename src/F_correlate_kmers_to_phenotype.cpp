@@ -41,37 +41,8 @@ namespace po = boost::program_options;
 /// @return a phenotype list, pair of two vectors: 1. contain the accessions indices and the second the 
 /// phenotype for each accession
 ///
-phenotype_list load_phenotypes_file(const string &filename) {
-	phenotype_list p_list;
-	
-	std::ifstream fin(filename);
-	fin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // read until the end of the first line
-	std::string word;
-	double value;
-	while(fin >> word) {
-		fin >> value;
-		p_list.first.push_back(word);
-		p_list.second.push_back(value);
-	}	
-	return p_list;
-}
-
-///
-/// @brief  Loading phenotypes values from file contatining more than one phenotype
-/// @param  filename: a path to a file containing phenotypes for each accession
-/// @return vactor of phenotype lists, pair of two vectors: 1. contain the accessions indices and the second the 
-/// phenotype for each accession
-///
-
-bool is_uint(const std::string& s)
-{
-	return !s.empty() && std::find_if(s.begin(), 
-			s.end(), [](char c) { return !std::isdigit(c); }) == s.end();
-}
-
-
-pair<vector<string>, vector<uint64_phenotype_list>> load_uint64_phenotypes_file(const string &filename) {
-	vector<uint64_phenotype_list> p_list;
+pair<vector<string>, vector<phenotype_list>> load_phenotypes_file(const string &filename) {
+	vector<phenotype_list> p_list;
 	vector<string> phenotypes_names;
 
 	std::ifstream 	fin(filename);
@@ -93,19 +64,16 @@ pair<vector<string>, vector<uint64_phenotype_list>> load_uint64_phenotypes_file(
 						filename);
 			for(size_t i=0; i<phenotypes_names.size(); i++) {
 				p_list[i].first.push_back(line_tokens[0]);
-				if(is_uint(line_tokens[i+1]))
-					p_list[i].second.push_back(stoul(line_tokens[i+1]));
-				else
-					throw std::logic_error("Phenotypes should be natural numbers (uints) " + line_tokens[i+1]);
+				p_list[i].second.push_back(stof(line_tokens[i+1]));
 			}
 		}
 		line_n++;
 		line_tokens.resize(0);
 	}
-	return pair<vector<string>, vector<uint64_phenotype_list>> (phenotypes_names, p_list);
+	return pair<vector<string>, vector<phenotype_list>> (phenotypes_names, p_list);
 }
 // Notice that the names of the accession in each of the phenotypes has to be the same
-void write_fam_file(const vector<uint64_phenotype_list> &phenotypes, const string &fn) {
+void write_fam_file(const vector<phenotype_list> &phenotypes, const string &fn) {
 	ofstream f(fn, ios::out);
 	for(size_t i=0; i<phenotypes[0].first.size(); i++) {
 		f << phenotypes[0].first[i] << " " << phenotypes[0].first[i] << " 0 0 0";
@@ -121,8 +89,8 @@ void write_fam_file(const vector<uint64_phenotype_list> &phenotypes, const strin
 	f.close();
 }
 
-void write_fam_file(const uint64_phenotype_list &phenotype, const string &fn) {
-	write_fam_file(vector<uint64_phenotype_list>{phenotype}, fn);
+void write_fam_file(const phenotype_list &phenotype, const string &fn) {
+	write_fam_file(vector<phenotype_list>{phenotype}, fn);
 }
 
 size_t get_index_DB(const string &name, const vector<KMC_db_handle> &DBs) {
@@ -136,8 +104,9 @@ size_t get_index_DB(const string &name, const vector<KMC_db_handle> &DBs) {
 	}
 	return index;
 }
-uint64_phenotype_list intersect_phenotypes_to_present_DBs(const uint64_phenotype_list &pl, const vector<KMC_db_handle> &DB_paths, const bool &must_be_present) {
-	uint64_phenotype_list intersect_pl;
+
+phenotype_list intersect_phenotypes_to_present_DBs(const phenotype_list &pl, const vector<KMC_db_handle> &DB_paths, const bool &must_be_present) {
+	phenotype_list intersect_pl;
 	for(size_t i=0; i<pl.first.size(); i++) {
 		size_t index = get_index_DB(pl.first[i], DB_paths);
 		if(index == (~0u)) { // nothing found
@@ -170,26 +139,6 @@ vector<string> get_DBs_names(const vector<KMC_db_handle> &DBs) {
 	return names;
 }
 
-bool is_double_uint(const double &x) {
-	if(x<0)
-		return false;
-	if(trunc(x) == x)
-		return true;
-	else
-		return false;
-}
-
-// This is
-vector<uint64_t> make_list_uint64(const vector<double> &l) {
-	vector<uint64_t> res(l.size());
-	for(size_t i=0; i<l.size(); i++) {
-		if(is_double_uint(l[i]))
-			res[i] = (uint64_t)l[i];
-		else
-			throw std::logic_error("Got a value " + to_string(l[i]) + " need to get unsigned integers");
-	}
-	return res;
-}
 
 int main(int argc, char* argv[])
 {
@@ -218,6 +167,8 @@ int main(int argc, char* argv[])
 			 "Minor allele frequency")
 			("mac",			po::value<size_t>()->default_value(5), 
 			 "Minor allele count")
+			("debug_option_batches_to_run",			po::value<uint64_t>()->default_value(NULL_KEY), 
+			 "Change to run only on part of the table")
 			;
 
 		/* parse the command line */
@@ -248,7 +199,6 @@ int main(int argc, char* argv[])
 		}
 		/***************************************************************************************************/
 		// Base name for all save files
-		double t0 = get_time();
 		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
 		size_t heap_size = vm["best"].as<size_t>();	// # best k-mers to report
 		size_t batch_size = vm["batch_size"].as<size_t>(); // Load each time ~1/n_steps of k-mers
@@ -257,11 +207,12 @@ int main(int argc, char* argv[])
 		uint32_t kmer_length = vm["kmer_len"].as<uint32_t>();
 		double maf = vm["maf"].as<double>();
 		size_t mac = vm["mac"].as<size_t>();
-
+		
+		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
 		// Load DB paths
 		vector<KMC_db_handle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
 		// Loading the phenotype (also include the list of needed accessions)
-		pair<vector<string>, vector<uint64_phenotype_list>> phenotypes_info = load_uint64_phenotypes_file(
+		pair<vector<string>, vector<phenotype_list>> phenotypes_info = load_phenotypes_file(
 				vm["phenotype_file"].as<string>());
 		size_t phenotypes_n = phenotypes_info.first.size();
 
@@ -269,7 +220,7 @@ int main(int argc, char* argv[])
 		for(size_t i=0; i<phenotypes_n; i++)
 			phenotypes_info.second[i] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[i], 
 					DB_paths, true);
-		vector<uint64_phenotype_list> p_list{phenotypes_info.second};
+		vector<phenotype_list> p_list{phenotypes_info.second};
 
 		// Load all accessions data to a combine dataset
 		kmer_multipleDB multiDB(
@@ -294,10 +245,15 @@ int main(int argc, char* argv[])
 		if(min_count < mac)
 			min_count = mac;
 
+		double t0,t1;
+		/* Compute time taken */
 		cerr << "Min count to associate = " << min_count << endl;
 		size_t batch_index = 0;
-		while(multiDB.load_kmers(batch_size) && (batch_index < NULL_KEY)) { 
-			cerr << "Associating k-mers, part: " <<  batch_index << endl; 
+		t0 = get_time();
+		while(multiDB.load_kmers(batch_size) && (batch_index < debug_option_batches_to_run)) { 
+			t1 = get_time();
+			cerr << "Associating k-mers, part: " <<  batch_index << "\tt(min)=" << (double)(t1-t0)/(60.) << endl; 
+			t0 = get_time();
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
 				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
 						multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
@@ -307,17 +263,16 @@ int main(int argc, char* argv[])
 				cerr << ".";
 				cerr.flush();
 			}
-			cerr << endl;
+			t1 = get_time();
+			cerr << "\tt(min)="<< (double)(t1-t0)/(60.) <<endl;
 			batch_index++;
 		}
 
-		cerr << "[TIMING]\tAFTER LOADING\t" << ((get_time() - t0)/60) << endl;
 		// close DBs, and release space ??
 		/****************************************************************************************************
 		 *	save best k-mers to files and create set of k-mers from heaps (and clear heaps)	
 		 ***************************************************************************************************/
 		vector<kmers_output_list> best_kmers;	
-		cerr << "[TIMING]\tBEFORE SAVING\t" << ((get_time() - t0)/60) << endl;
 		for(size_t j=0; j<(phenotypes_n); j++) {
 			string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
 			k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
@@ -326,7 +281,6 @@ int main(int argc, char* argv[])
 			best_kmers.push_back(k_heap[j].get_kmers_for_output(kmer_length));
 			k_heap[j].empty_heap(); // clear heap
 		}
-		cerr << "[TIMING]\tAFTER SAVING\t" << ((get_time() - t0)/60) << endl;
 
 		/****************************************************************************************************
 		 *	Reload all k-mers and out to plink files only the best k-mers found in the previous stage
@@ -338,11 +292,10 @@ int main(int argc, char* argv[])
 			write_fam_file(p_list[j], fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] 
 					+ ".fam");
 		}
-		cerr << "[TIMING]\tOPENED PLINK FILES\t" << ((get_time() - t0)/60) << endl;
 
 		// Reload k-mers to create plink bed/bim files
 		batch_index = 0;
-		while(multiDB_step2.load_kmers(batch_size)) {
+		while(multiDB_step2.load_kmers(batch_size) && (batch_index<debug_option_batches_to_run)) {
 			cerr << "Saving k-mers, part: " <<  batch_index << endl; 
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
 				best_kmers[j].next_index = 
@@ -353,7 +306,6 @@ int main(int argc, char* argv[])
 			cerr << endl;
 			batch_index++;
 		}
-		cerr << "[TIMING]\tWROTE PLINK FILES\t" << ((get_time() - t0)/60) << endl;
 		// close DBs, release space ??
 		// close all bed & bim plink files & (specific fam?)
 		for(size_t j=0; j<plink_output.size(); j++)

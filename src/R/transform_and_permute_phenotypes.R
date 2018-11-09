@@ -102,10 +102,10 @@ for(i in 2:(n_permute+2)) {
 }
 
 # 5. Linearly transform transformed phenotypes
-trans_phenotypes[,2:(n_permute+2)] <- linear_trans_to_natural_numbers(trans_phenotypes[,2:(n_permute+2)])
+# trans_phenotypes[,2:(n_permute+2)] <- linear_trans_to_natural_numbers(trans_phenotypes[,2:(n_permute+2)])
 
 # 6. Output phenotypes before and after transformation (4+)5
 write.table(x=phenotypes, file=fn_out_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
-options(scipen=20)
+# options(scipen=20)
 write.table(x=trans_phenotypes, file=fn_out_trans_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
-options(scipen=0)  # restore the default
+# options(scipen=0)  # restore the default
