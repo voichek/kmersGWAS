@@ -45,7 +45,9 @@ kmer_multipleDB::kmer_multipleDB(
 	m_accessions(db_to_use.size()),
 	m_kmer_table_file(merge_db_file, ios::binary | ios::ate), // ios::ate - put pointer in the end of file
 	m_hash_words_db_file((m_accessions_db_file+WLEN-1)/WLEN),
-	m_hash_words((m_accessions+WLEN-1)/WLEN),
+   	// Due to the scoring procdure, the array should be a multiplication of 128 (as two words are proccessed
+	// together in the dot product calculation)
+	m_hash_words(2*((m_accessions+(2*WLEN)-1)/(2*WLEN))),
 	m_kmers(),
 	m_kmers_table(),
 	m_kmer_len(kmer_len),
@@ -106,17 +108,13 @@ bool kmer_multipleDB::load_kmers(const uint64_t &batch_size, const kmer_set &set
 	} else { // file not empty
 		vector<uint64_t> reading_buffer(m_hash_words_db_file+1);
 		for(size_t i=0; (i<batch_size) && (m_left_in_file>0); i++) {
-			// Reading from file
-			//		for(size_t j=0;j<reading_buffer.size();j++)
-			//			m_kmer_table_file.read(reinterpret_cast<char *>(&reading_buffer[j]), 
-			//					sizeof(reading_buffer[j]));
 			m_kmer_table_file.read(reinterpret_cast<char *>(reading_buffer.data()), 
 					sizeof(uint64_t)*reading_buffer.size());
 			//update counters
 			m_left_in_file -= (reading_buffer.size() * sizeof(uint64_t));
 			m_kmer_loaded++;
 			if((set_kmers_to_use.size() == 0) || (lookup_x(set_kmers_to_use,reading_buffer[0]))) {
-				m_kmers.push_back(reading_buffer[0]); // save k-mers
+				m_kmers.push_back(reading_buffer[0]); // save k-mer representation
 
 				// add info to table in memory (= squeeze)
 				size_t table_offset = m_kmers_table.size();
@@ -223,8 +221,8 @@ size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kme
 	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
 		if((index<kmer_list.size()) && 
 				(get<2>(kmer_list[index])==(kmer_i+m_row_offset))) {
-			write_PA(
-					bits2kmer31(get<0>(kmer_list[index]),m_kmer_len) + "_" + to_string(get<1>(kmer_list[index])),
+			write_PA(bits2kmer31(get<0>(kmer_list[index]),m_kmer_len) + "_" + 
+					to_string(get<1>(kmer_list[index])),
 					kmer_i, f);
 			index++;	
 		}
@@ -270,33 +268,31 @@ void kmer_multipleDB::create_map_from_all_DBs() {
 	}
 }
 
-#pragma GCC push_options
-#pragma GCC optimize ("unroll-loops")
+
+#include "dot_product_SSE4.inc"
 double kmer_multipleDB::calculate_kmer_score(
 		const size_t kmer_index, 
 		const vector<float> &scores, // Scores has to be a multiplication of wordsize (64) 
 		const float score_sum,
 		const uint64_t min_in_group
 		) const {
-	uint64_t bit, N1(0), N0;
+	uint64_t  N1(0), N0;
 	float Ex1(0);
-	double N=(double)m_accessions;
 	size_t container_i = kmer_index*m_hash_words;
 	/* The following section is where my program is most of the time */
 	size_t i=0;
-	for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++) {
-		uint64_t word = m_kmers_table[container_i+hashmap_i];
-		N1 += _mm_popcnt_u64(word);
-		for(uint64_t bit_i=0; bit_i<(8*sizeof(uint64_t)); bit_i++) {
-			bit = word & 1;
-			Ex1 += (scores[i]*bit);
-			word = (word>>1);		
-			i++;
-		}
+	for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i+=2) { // two words at a time
+		N1 = N1+
+			_mm_popcnt_u64(m_kmers_table[container_i+hashmap_i])+
+			_mm_popcnt_u64(m_kmers_table[container_i+hashmap_i+1]);
+		//Ex1 += dotRefC((float*)&scores[i], (unsigned char*)&m_kmers_table[container_i+hashmap_i]);
+		Ex1 += dotSSE41((__m128*)&scores[i], (unsigned char*)&m_kmers_table[container_i+hashmap_i]);
+		i+=128;
 	}
 	/* End of critical section */
 	N0 = m_accessions - N1;
 	if((min_in_group<=N0) && (min_in_group <= N1)) {
+		double N=(double)m_accessions;
 		double sum_gi = (double)N1;
 		double yigi = (double)Ex1;
 		double r =  N*yigi- sum_gi*score_sum;
@@ -304,7 +300,6 @@ double kmer_multipleDB::calculate_kmer_score(
 		return r / (N*sum_gi - sum_gi*sum_gi);
 	} else {return 0;}
 }
-#pragma GCC pop_options
 
 ///
 /// @brief  Ctor of kmer_heap initialized the priority queue
