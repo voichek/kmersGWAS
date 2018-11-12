@@ -55,7 +55,7 @@ def main():
         print "Copying phenotype data to directory"
     
     paths["pheno_orig_fn"] = "%s/%s.original_pheno" % (args.outdir, args.name)
-#    os.system("cp %s %s" % (get_file(args.fn_phenotype), paths["pheno_orig_fn"]))
+   # os.system("cp %s %s" % (get_file(args.fn_phenotype), paths["pheno_orig_fn"]))
     os.system("cat %s | tail -n +2 | awk -f %s > %s" % \
             (get_file(args.fn_phenotype),paths["average_pheno_script"],paths["pheno_orig_fn"]))
 

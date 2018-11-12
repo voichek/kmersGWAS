@@ -23,6 +23,7 @@
 #include "kmer_general.h"
 #include "kmer_multipleDB.h"
 
+#include <sys/sysinfo.h> // To monitor memory usage
 #include <algorithm>    // 
 #include <iostream>
 #include <iterator>
@@ -207,7 +208,7 @@ int main(int argc, char* argv[])
 		uint32_t kmer_length = vm["kmer_len"].as<uint32_t>();
 		double maf = vm["maf"].as<double>();
 		size_t mac = vm["mac"].as<size_t>();
-		
+
 		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
 		// Load DB paths
 		vector<KMC_db_handle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
@@ -248,11 +249,13 @@ int main(int argc, char* argv[])
 		double t0,t1;
 		/* Compute time taken */
 		cerr << "Min count to associate = " << min_count << endl;
+		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 		size_t batch_index = 0;
 		t0 = get_time();
 		while(multiDB.load_kmers(batch_size) && (batch_index < debug_option_batches_to_run)) { 
 			t1 = get_time();
 			cerr << "Associating k-mers, part: " <<  batch_index << "\tt(min)=" << (double)(t1-t0)/(60.) << endl; 
+			cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 			t0 = get_time();
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
 				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
@@ -265,22 +268,30 @@ int main(int argc, char* argv[])
 			}
 			t1 = get_time();
 			cerr << "\tt(min)="<< (double)(t1-t0)/(60.) <<endl;
+			t0 = get_time();
 			batch_index++;
 		}
 
+		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 		// close DBs, and release space ??
 		/****************************************************************************************************
 		 *	save best k-mers to files and create set of k-mers from heaps (and clear heaps)	
 		 ***************************************************************************************************/
 		vector<kmers_output_list> best_kmers;	
-		for(size_t j=0; j<(phenotypes_n); j++) {
+		for(size_t j=0; j<(phenotypes_n); j++) { // For some reason this can be improved by parallelization
 			string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
+			cerr << "output: " << fn_kmers << "\t\t";
+			cerr << "Used RAM:\t" << get_mem_used_by_process() ;
 			k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
+			cerr << "\t" << get_mem_used_by_process();
 
 			// Create set of best k-mers
 			best_kmers.push_back(k_heap[j].get_kmers_for_output(kmer_length));
+			cerr << "\t" << get_mem_used_by_process();
 			k_heap[j].empty_heap(); // clear heap
+			cerr << "\t" << get_mem_used_by_process() << endl;
 		}
+		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 
 		/****************************************************************************************************
 		 *	Reload all k-mers and out to plink files only the best k-mers found in the previous stage
@@ -292,11 +303,13 @@ int main(int argc, char* argv[])
 			write_fam_file(p_list[j], fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] 
 					+ ".fam");
 		}
-
+		cerr << "Re-loading k-mers" << endl;
+		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 		// Reload k-mers to create plink bed/bim files
 		batch_index = 0;
 		while(multiDB_step2.load_kmers(batch_size) && (batch_index<debug_option_batches_to_run)) {
 			cerr << "Saving k-mers, part: " <<  batch_index << endl; 
+			cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
 				best_kmers[j].next_index = 
 					multiDB_step2.output_plink_bed_file(plink_output[j], best_kmers[j].list, best_kmers[j].next_index); // parallel ?

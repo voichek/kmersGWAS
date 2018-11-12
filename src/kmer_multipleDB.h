@@ -60,7 +60,7 @@ class kmer_multipleDB {
 		void output_plink_bed_file(bedbim_handle &f, const kmer_set &set_kmers) const;
 		inline void output_plink_bed_file(bedbim_handle &f) const 
 		{output_plink_bed_file(f, kmer_set());}
-		size_t output_plink_bed_file(bedbim_handle &f, const std::vector<kmer_output> &kmer_list, size_t index) const;
+		size_t output_plink_bed_file(bedbim_handle &f, const std::vector<kmer_to_print> &kmer_list, size_t index) const;
 
 		void add_kmers_to_heap(kmer_heap &kmers_and_scores, std::vector<float> scores, 
 				const std::size_t &min_cnt) const;
@@ -122,7 +122,7 @@ class kmer_heap {
 		// it would be nice to some how create a histogram of all the scores along the way...
 		// (not only the ones we keep)
 		void plot_stat() const;
-		inline void empty_heap() {m_best_kmers = kmer_score_priority_queue();} // empty heap content
+		inline void empty_heap() {kmer_score_priority_queue().swap(m_best_kmers);} // empty heap content
 		kmer_set get_kmer_set() const;
 		kmers_output_list get_kmers_for_output(const size_t &kmer_len) const;	
 	private:

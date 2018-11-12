@@ -23,7 +23,9 @@
 #define WLEN 64
 #define NULL_KEY 0xFFFFFFFFFFFFFFFF
 
-// Struct: Hash for 64 bits
+double get_mem_used_by_process(); // Daignostic tool
+
+	// Struct: Hash for 64 bits
 
 /**
  * @brief   Hash function for 64 bit
@@ -97,11 +99,11 @@ uint64_t reverseOne(uint64_t x);
 double get_time(void);
 
 typedef std::tuple<uint64_t, double, size_t> kmer_score; //k-mer / score/ row index in table
-typedef std::tuple<std::string, size_t> kmer_output; // k-mer name / row index in table
+typedef std::tuple<uint64_t, uint64_t, size_t> kmer_to_print; // k-mer name / row index in table
 
 struct kmers_output_list
 {
-	std::vector<kmer_output> list;
+	std::vector<kmer_to_print> list;
 	size_t next_index;
 };
 

@@ -219,11 +219,13 @@ void kmer_multipleDB::write_PA(const string &name, const size_t &kmer_i, bedbim_
 
 }
 
-size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kmer_output> &kmer_list, size_t index) const {
+size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kmer_to_print> &kmer_list, size_t index) const {
 	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
 		if((index<kmer_list.size()) && 
-				(get<1>(kmer_list[index])==(kmer_i+m_row_offset))) {
-			write_PA(get<0>(kmer_list[index]), kmer_i, f);
+				(get<2>(kmer_list[index])==(kmer_i+m_row_offset))) {
+			write_PA(
+					bits2kmer31(get<0>(kmer_list[index]),m_kmer_len) + "_" + to_string(get<1>(kmer_list[index])),
+					kmer_i, f);
 			index++;	
 		}
 	}
@@ -357,6 +359,7 @@ void kmer_heap::output_to_file(const string &filename) const {
 		of.write(reinterpret_cast<const char *>(&get<0>(temp_queue.top())), sizeof(uint64_t));
 		temp_queue.pop();
 	}
+	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
 	of.close();
 }
 
@@ -372,6 +375,7 @@ void kmer_heap::output_to_file_with_scores(const std::string &filename) const {
 		of.write(reinterpret_cast<const char *>(&get<1>(temp_queue.top())), sizeof(double));
 		temp_queue.pop();
 	}
+	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
 	of.close();
 }
 
@@ -387,23 +391,25 @@ kmer_set kmer_heap::get_kmer_set() const {
 		res.insert(get<0>(temp_queue.top()));
 		temp_queue.pop();
 	}
+	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
 	return res;
 }
 kmers_output_list kmer_heap::get_kmers_for_output(const size_t &kmer_len) const {
 	kmers_output_list res;
 	res.next_index = 0;
-	
+
 	kmer_score_priority_queue temp_queue(m_best_kmers);
 	while(!temp_queue.empty()) {
 		res.list.push_back(make_tuple(
-					bits2kmer31(get<0>(temp_queue.top()),kmer_len) + "_" + to_string(temp_queue.size()),
+					get<0>(temp_queue.top()),temp_queue.size(),
 					get<2>(temp_queue.top())));
 		temp_queue.pop();
 	}
-	
+	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
+
 	// sort list
 	sort(begin(res.list), end(res.list), [](auto const &t1, auto const &t2) {
-			        return get<1>(t1) < get<1>(t2);});
+			return get<1>(t1) < get<1>(t2);});
 	return res;
 }	
 
