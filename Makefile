@@ -1,6 +1,7 @@
 #Good read for making a makefile: https://stackoverflow.com/questions/2481269/how-to-make-a-simple-c-makefile"
 CXX=g++
 CPPFLAGS = -std=c++14 -Wall -O3 -I /ebio/abt6/yvoichek/smallproj/prefix/include/ -I ./include/ -pthread  -march=native 
+#FLAGS for callgrind -g -mno-tbm 
 LDFLAGS :=  -L/ebio/abt6/yvoichek/smallproj/prefix/lib -lstdc++ -lboost_program_options
 
 SRCEXT = cpp
@@ -42,7 +43,7 @@ $(BUILDIR)/kmer_general.o: $(SRCDIR)/kmer_general.cpp $(SRCDIR)/kmer_general.h $
 $(BUILDIR)/kmer_DB.o: $(SRCDIR)/kmer_DB.cpp $(SRCDIR)/kmer_DB.h  $(OBJ_KMC) $(BUILDIR)/kmer_general.o
 	$(CXX) -c $(SRCDIR)/kmer_DB.cpp -o $(BUILDIR)/kmer_DB.o $(CPPFLAGS) 
 
-$(BUILDIR)/kmer_multipleDB.o: $(SRCDIR)/kmer_multipleDB.cpp $(SRCDIR)/kmer_multipleDB.h  $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o
+$(BUILDIR)/kmer_multipleDB.o: $(SRCDIR)/kmer_multipleDB.cpp $(SRCDIR)/kmer_multipleDB.h  $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o $(SRCDIR)/dot_product_SSE4.inc
 	$(CXX) -c $(SRCDIR)/kmer_multipleDB.cpp -o $(BUILDIR)/kmer_multipleDB.o $(CPPFLAGS) 
 
 $(BUILDIR)/mmer.o:
@@ -58,4 +59,4 @@ $(BUILDIR)/kmc_file.o:
 
 
 clean:
-	rm $(BINDIR)/* $(OBJ_ALL)
+	rm $(BINDIR)/* $(BUILDIR)/* 

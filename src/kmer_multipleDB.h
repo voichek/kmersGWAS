@@ -72,7 +72,7 @@ class kmer_multipleDB {
 		// return the indices of DB names inserted in the class DBs
 
 
-		void clear() {m_kmers.resize(0); m_kmers_table.resize(0);} // clear hashtable
+		void clear() {m_kmers.resize(0); m_kmers_table.resize(0); m_kmers_popcnt.resize(0);} // clear hashtable
 
 	private:                                
 		std::vector<std::string> m_db_names_db_file; 	// Names of DBs in the table file
@@ -86,6 +86,7 @@ class kmer_multipleDB {
 		std::size_t m_hash_words;			// Number of words for "row" in memory table
 		std::vector<uint64_t> m_kmers;			// List of k-mers (row names)
 		std::vector<uint64_t> m_kmers_table;		// Memort table content
+		std::vector<double> m_kmers_popcnt;		// Memort table content
 		uint32 m_kmer_len;				// k-mer length
 		std::size_t m_left_in_file;			// Number of bytes in table file not read
 		std::size_t m_kmer_number;			// Number of k-mers in table file not read

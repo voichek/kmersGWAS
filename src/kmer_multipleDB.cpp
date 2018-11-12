@@ -21,10 +21,15 @@
 #include "kmer_multipleDB.h"
 
 #include <math.h>
-#include "nmmintrin.h" //_mm_popcnt_u64 
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <nmmintrin.h> //_mm_popcnt_u64 
+#include <smmintrin.h>  /* SSE 4.1 */
 #include <algorithm>
 #include <bitset>
 #include <numeric>
+
 using namespace std;
 
 ///
@@ -50,6 +55,7 @@ kmer_multipleDB::kmer_multipleDB(
 	m_hash_words(2*((m_accessions+(2*WLEN)-1)/(2*WLEN))),
 	m_kmers(),
 	m_kmers_table(),
+	m_kmers_popcnt(),
 	m_kmer_len(kmer_len),
 	m_left_in_file(),
 	m_kmer_number(),
@@ -120,12 +126,18 @@ bool kmer_multipleDB::load_kmers(const uint64_t &batch_size, const kmer_set &set
 				size_t table_offset = m_kmers_table.size();
 				m_kmers_table.resize(table_offset+m_hash_words, 0);
 				for(size_t col_index=0; col_index<m_accessions; col_index++) {
-					uint64_t new_bit = (reading_buffer[m_map_word_index[col_index]+1] >> m_map_bit_index[col_index]) & 1ull;
+					uint64_t new_bit = (reading_buffer[m_map_word_index[col_index]+1] 
+							>> m_map_bit_index[col_index]) & 1ull;
+
 					uint64_t hashmap_i = (col_index>>6);
 					uint64_t  bit_i = col_index&63;
 					m_kmers_table[table_offset + hashmap_i] |= (new_bit << bit_i);
 				}
-			}	
+				uint64_t kmer_popcnt = 0;
+				for(size_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++)
+					kmer_popcnt += _mm_popcnt_u64(m_kmers_table[table_offset+hashmap_i]);
+				m_kmers_popcnt.push_back((double)kmer_popcnt);
+			}
 		}
 	}
 	return true;
@@ -230,6 +242,20 @@ size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kme
 	return index;
 }
 
+void permute_scores(vector<float> &V) { // assume V is a multiplication of 128
+	vector<float> R(V.size());
+	size_t index =0;
+	for(size_t offset=0; offset<V.size(); offset+=128) {
+		for(size_t i=0; i<32; i++) {
+			for(size_t j=0; j<128; j+=32) {
+//				cerr << index << "\t" << offset << "\t" << i << "\t" << j << endl;
+				R.at(index) = V.at(31-i+j+offset);//at just for checking 
+				index++;
+			}
+		}
+	}
+	V.swap(R);
+}
 /////
 ///// @brief  go over all the kmers now present in the multipleDB, calculate association score and add this to
 ////			the given heap
@@ -243,6 +269,7 @@ void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, vector<floa
 	// Due to efficency consideration we pass scores not by reference and change it to be a multiplication of
 	// word size (saving many not neccessery "if" in the scoring procedure)
 	scores.resize(m_hash_words*sizeof(uint64_t)*8, 0); 
+	permute_scores(scores);
 	float sum_scores(0);
 	for(size_t i=0; i<scores.size(); i++) 
 		sum_scores += scores[i];
@@ -269,35 +296,59 @@ void kmer_multipleDB::create_map_from_all_DBs() {
 }
 
 
-#include "dot_product_SSE4.inc"
+///     Very efficent dot product between bit-array (uint64_t) to floats array
+//		using the specific archtecture of the proccessor (SSE4). 
+//		Taken from: https://stackoverflow.com/questions/16051365/fast-dot-product-of-a-bit-vector-and-a-floating-point-vector
+//		There is another version using the AVX2 archtecture which is 2 times faster.
+//		But part of our cluster in MPI can't run AVX2 so we will stick to generality for now.
+///
+
+/* Defines */
+#define ALIGNTO(n) __attribute__((aligned(n)))
+
+/**
+ *  * SSE 4.1 implementation.
+ *   */
+
+inline float dotSSE41(__m128 f[32], unsigned char maskArg[16]){
+	__m128   shufdMask ALIGNTO(16) = _mm_load_ps((const float*)maskArg);
+	__m128   zblended  ALIGNTO(16);
+	__m128   sums      ALIGNTO(16) = _mm_setzero_ps();
+	float    sumsf[4]  ALIGNTO(16);
+
+	for(size_t i=0;i<32;i++) {
+				zblended  = _mm_setzero_ps();
+				zblended  = _mm_blendv_ps(zblended, f[i], shufdMask);
+				sums      = _mm_add_ps(sums, zblended);
+				shufdMask = _mm_castsi128_ps(_mm_slli_epi32(_mm_castps_si128(shufdMask), 1));
+			}
+
+	/* Final Summation */
+	_mm_store_ps(sumsf, sums);
+	return sumsf[0] + sumsf[1] + sumsf[2] + sumsf[3];
+}
+
 double kmer_multipleDB::calculate_kmer_score(
 		const size_t kmer_index, 
 		const vector<float> &scores, // Scores has to be a multiplication of wordsize (64) 
 		const float score_sum,
 		const uint64_t min_in_group
 		) const {
-	uint64_t  N1(0), N0;
-	float Ex1(0);
-	size_t container_i = kmer_index*m_hash_words;
-	/* The following section is where my program is most of the time */
-	size_t i=0;
-	for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i+=2) { // two words at a time
-		N1 = N1+
-			_mm_popcnt_u64(m_kmers_table[container_i+hashmap_i])+
-			_mm_popcnt_u64(m_kmers_table[container_i+hashmap_i+1]);
-		//Ex1 += dotRefC((float*)&scores[i], (unsigned char*)&m_kmers_table[container_i+hashmap_i]);
-		Ex1 += dotSSE41((__m128*)&scores[i], (unsigned char*)&m_kmers_table[container_i+hashmap_i]);
-		i+=128;
-	}
-	/* End of critical section */
-	N0 = m_accessions - N1;
-	if((min_in_group<=N0) && (min_in_group <= N1)) {
-		double N=(double)m_accessions;
-		double sum_gi = (double)N1;
+
+	double N = (double)m_accessions;
+	double N1 = m_kmers_popcnt[kmer_index];
+	double N0 = N-N1;
+	if((min_in_group <= N0) && (min_in_group <= N1)) {
+		float Ex1(0);
+		size_t container_i = kmer_index*m_hash_words;
+		size_t i=0;
+		for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i+=2, i+=128) { // two words at a time
+			Ex1 += dotSSE41((__m128*)&scores[i], (unsigned char*)&m_kmers_table[container_i+hashmap_i]);
+		}
 		double yigi = (double)Ex1;
-		double r =  N*yigi- sum_gi*score_sum;
+		double r =  N*yigi- N1*score_sum;
 		r = r * r;
-		return r / (N*sum_gi - sum_gi*sum_gi);
+		return r / (N*N1 -  N1*N1);
 	} else {return 0;}
 }
 
