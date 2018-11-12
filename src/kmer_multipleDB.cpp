@@ -242,6 +242,7 @@ size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kme
 	return index;
 }
 
+// Permuting the order of the phenotypes for the implementation of the scoring
 void permute_scores(vector<float> &V) { // assume V is a multiplication of 128
 	vector<float> R(V.size());
 	size_t index =0;
@@ -256,6 +257,8 @@ void permute_scores(vector<float> &V) { // assume V is a multiplication of 128
 	}
 	V.swap(R);
 }
+
+
 /////
 ///// @brief  go over all the kmers now present in the multipleDB, calculate association score and add this to
 ////			the given heap
@@ -310,24 +313,13 @@ void kmer_multipleDB::create_map_from_all_DBs() {
  *  * SSE 4.1 implementation.
  *   */
 
-inline float dotSSE41(__m128 f[32], unsigned char maskArg[16]){
-	__m128   shufdMask ALIGNTO(16) = _mm_load_ps((const float*)maskArg);
-	__m128   zblended  ALIGNTO(16);
-	__m128   sums      ALIGNTO(16) = _mm_setzero_ps();
-	float    sumsf[4]  ALIGNTO(16);
+//inline float dotSSE41(__m128 f[32], unsigned char maskArg[16]){
+//
+//	return sumsf[0] + sumsf[1] + sumsf[2] + sumsf[3];
+//}
 
-	for(size_t i=0;i<32;i++) {
-				zblended  = _mm_setzero_ps();
-				zblended  = _mm_blendv_ps(zblended, f[i], shufdMask);
-				sums      = _mm_add_ps(sums, zblended);
-				shufdMask = _mm_castsi128_ps(_mm_slli_epi32(_mm_castps_si128(shufdMask), 1));
-			}
-
-	/* Final Summation */
-	_mm_store_ps(sumsf, sums);
-	return sumsf[0] + sumsf[1] + sumsf[2] + sumsf[3];
-}
-
+#pragma GCC push_options
+#pragma GCC optimize ("unroll-loops")
 double kmer_multipleDB::calculate_kmer_score(
 		const size_t kmer_index, 
 		const vector<float> &scores, // Scores has to be a multiplication of wordsize (64) 
@@ -339,18 +331,33 @@ double kmer_multipleDB::calculate_kmer_score(
 	double N1 = m_kmers_popcnt[kmer_index];
 	double N0 = N-N1;
 	if((min_in_group <= N0) && (min_in_group <= N1)) {
-		float Ex1(0);
+		// Variables for the scoring with SSE4
+		__m128   mask ALIGNTO(16);
+		__m128   f		   ALIGNTO(16);
+		__m128   zblended  ALIGNTO(16);
+		__m128   sums      ALIGNTO(16) = _mm_setzero_ps();
+		float    sumsf[4]  ALIGNTO(16);
+		
 		size_t container_i = kmer_index*m_hash_words;
-		size_t i=0;
-		for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i+=2, i+=128) { // two words at a time
-			Ex1 += dotSSE41((__m128*)&scores[i], (unsigned char*)&m_kmers_table[container_i+hashmap_i]);
+		size_t j=0;
+		for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i+=2, j+=128) { // two words at a time
+			mask = _mm_load_ps((const float*)&m_kmers_table[container_i+hashmap_i]);
+			for(size_t i=0;i<128;i+=4) {
+				f = _mm_load_ps(&scores[j+i]);
+				zblended  = _mm_setzero_ps();					// Intialize zeros
+				zblended  = _mm_blendv_ps(zblended,f, mask);	// Choose according to bits
+				sums      = _mm_add_ps(sums, zblended);			// Sum chosen floats
+				mask = _mm_castsi128_ps(_mm_slli_epi32(_mm_castps_si128(mask), 1));
+			}
 		}
-		double yigi = (double)Ex1;
+		_mm_store_ps(sumsf, sums);
+		double yigi = sumsf[0] + sumsf[1] + sumsf[2] + sumsf[3];
 		double r =  N*yigi- N1*score_sum;
 		r = r * r;
 		return r / (N*N1 -  N1*N1);
 	} else {return 0;}
 }
+#pragma GCC pop_options
 
 ///
 /// @brief  Ctor of kmer_heap initialized the priority queue
