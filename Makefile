@@ -1,63 +1,70 @@
-#Good read for making a makefile: https://stackoverflow.com/questions/2481269/how-to-make-a-simple-c-makefile"
+########################################################################################################
+# General parameters of compilations 
 CXX=g++
-CPPFLAGS = -std=c++14 -Wall -O3 -I /ebio/abt6/yvoichek/smallproj/prefix/include/ -I ./include/ -pthread  -march=native 
+CXX_FLAGS = -std=c++14 -Wall -O3 -I /ebio/abt6/yvoichek/smallproj/prefix/include/ -I ./include/ -pthread -msse4.2 # -march=native 
 #-g -mno-tbm
-#FLAGS for callgrind -g -mno-tbm 
 LDFLAGS :=  -L/ebio/abt6/yvoichek/smallproj/prefix/lib -lstdc++ -lboost_program_options
+########################################################################################################
 
-SRCEXT = cpp
+BUILD_DIR = build
+BIN_DIR = bin
 
-INCLUDEDIR := include
-SRCDIR := src
-BUILDIR := build
-BINDIR := bin
-
-KMC_API = $(INCLUDEDIR)/KMC/kmc_api/
-OBJ_KMC = $(BUILDIR)/kmc_file.o $(BUILDIR)/kmer_api.o $(BUILDIR)/mmer.o 
-OBJ_YV =  $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_multipleDB.o $(BUILDIR)/kmer_general.o
-OBJ_ALL = $(OBJ_KMC) $(OBJ_YV)
-
-
-all: F_correlate_kmers_to_phenotype F_kmers_intersect_and_sort F_kmers_count_histogram F_list_kmers_found_in_multiple_DBs F_create_kmer_table
-
-F_create_kmer_table: $(SRCDIR)/F_create_kmer_table.cpp $(OBJ_ALL)
-	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_create_kmer_table.cpp -o $(BINDIR)/F_create_kmer_table $(CPPFLAGS) $(LDFLAGS)
-
-F_correlate_kmers_to_phenotype: $(SRCDIR)/F_correlate_kmers_to_phenotype.cpp $(OBJ_ALL)
-	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_correlate_kmers_to_phenotype.cpp -o $(BINDIR)/F_correlate_kmers_to_phenotype $(CPPFLAGS) $(LDFLAGS)
-	
-F_kmers_intersect_and_sort: $(SRCDIR)/F_kmers_intersect_and_sort.cpp $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o 
-	$(CXX) $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o $(SRCDIR)/F_kmers_intersect_and_sort.cpp -o $(BINDIR)/F_kmers_intersect_and_sort $(CPPFLAGS) 
-
-F_kmers_count_histogram: $(SRCDIR)/F_kmers_count_histogram.cpp $(OBJ_ALL) 
-	$(CXX) $(OBJ_ALL) $(SRCDIR)/F_kmers_count_histogram.cpp -o $(BINDIR)/F_kmers_count_histogram $(CPPFLAGS) 
-
-F_list_kmers_found_in_multiple_DBs: $(SRCDIR)/F_list_kmers_found_in_multiple_DBs.cpp  $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o
-	$(CXX) $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o $(SRCDIR)/F_list_kmers_found_in_multiple_DBs.cpp -o $(BINDIR)/F_list_kmers_found_in_multiple_DBs $(CPPFLAGS) 
+########################################################################################################
+# Define object to be created
+SRC_H_OBJ = $(wildcard src/*.h)
+SRC_CPP_OBJ = $(subst .h,.cpp,$(SRC_H_OBJ))
+SRC_CPP_KMC_OBJ = $(wildcard include/KMC/kmc_api/*.cpp)
+OBJ = $(SRC_CPP_OBJ:src/%.cpp=$(BUILD_DIR)/%.o) 
+OBJ_KMC = $(SRC_CPP_KMC_OBJ:include/KMC/kmc_api/%.cpp=$(BUILD_DIR)/%.o)
+########################################################################################################
+# Define BIN to be created
+SRC_CPP_BIN = $(filter-out $(SRC_CPP_OBJ),$(wildcard src/*.cpp))
+BIN = $(filter-out associate_kmers_with_phenotypes,$(SRC_CPP_BIN:src/%.cpp=%))
+########################################################################################################
+# Define dependencies - Gcc/Clang will create these .d files containing dependencies.
+DEP = $(OBJ:%.o=%.d)
 
 
+########################################################################################################
+# Define rules
+#.PHONY : temp
+#temp: 
+#	@echo $(BIN)
+#
 
-# Objects
-$(BUILDIR)/kmer_general.o: $(SRCDIR)/kmer_general.cpp $(SRCDIR)/kmer_general.h $(OBJ_KMC)
-	$(CXX) -c $(SRCDIR)/kmer_general.cpp -o $(BUILDIR)/kmer_general.o $(CPPFLAGS) 
+all: $(BIN) associate_kmers_with_phenotypes
+	@echo "Built everything"
 
-$(BUILDIR)/kmer_DB.o: $(SRCDIR)/kmer_DB.cpp $(SRCDIR)/kmer_DB.h  $(OBJ_KMC) $(BUILDIR)/kmer_general.o
-	$(CXX) -c $(SRCDIR)/kmer_DB.cpp -o $(BUILDIR)/kmer_DB.o $(CPPFLAGS) 
+associate_kmers_with_phenotypes : $(OBJ) $(OBJ_KMC)
+	mkdir -p bin
+	@echo $^
+	$(CXX) $(CXX_FLAGS)  $^ src/$(notdir $@).cpp  -o bin/$@ $(LDFLAGS)
 
-$(BUILDIR)/kmer_multipleDB.o: $(SRCDIR)/kmer_multipleDB.cpp $(SRCDIR)/kmer_multipleDB.h  $(OBJ_KMC) $(BUILDIR)/kmer_DB.o $(BUILDIR)/kmer_general.o
-	$(CXX) -c $(SRCDIR)/kmer_multipleDB.cpp -o $(BUILDIR)/kmer_multipleDB.o $(CPPFLAGS) 
+$(BIN) : $(OBJ_KMC) $(OBJ)
+	@echo $^
+	mkdir -p bin
+	$(CXX) $(CXX_FLAGS)  $^ src/$(notdir $@).cpp  -o bin/$@
 
-$(BUILDIR)/mmer.o:
-	$(CXX) -c  $(KMC_API)/mmer.cpp -o $(BUILDIR)/mmer.o $(CPPFLAGS)  
+# Include all .d files
+-include $(DEP)
 
-$(BUILDIR)/kmer_api.o: 
-	$(CXX) -c  $(KMC_API)/kmer_api.cpp -o $(BUILDIR)/kmer_api.o $(CPPFLAGS)
+.SECONDEXPANSION:
+$(OBJ_KMC) : $$(patsubst %.o,%.cpp,include/KMC/kmc_api/$$(notdir $$@))
+	mkdir -p $(@D)
+	@echo $<
+	@echo $@
+	$(CXX) $(CXX_FLAGS) -MMD -c $< -o $@
 
-$(BUILDIR)/kmc_file.o:
-	$(CXX) -c  $(KMC_API)/kmc_file.cpp -o $(BUILDIR)/kmc_file.o $(CPPFLAGS)
-
-
-
-
-clean:
-	rm $(BINDIR)/* $(BUILDIR)/* 
+# Build target for every single object file.
+# The potential dependency on header files is covered
+# by calling `-include $(DEP)`.
+$(OBJ) : $$(patsubst %.o,%.cpp,src/$$(notdir $$@)) $(OBJ_KMC)
+	mkdir -p $(@D)
+	# The -MMD flags additionaly creates a .d file with
+	# # the same name as the .o file
+	$(CXX) $(CXX_FLAGS) -MMD -c $< -o $@
+.PHONY : clean
+clean :
+	# This should remove all generated files.
+	-rm $(BUILD_DIR) $(BIN_DIR) -Rf
+########################################################################################################

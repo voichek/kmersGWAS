@@ -91,7 +91,9 @@ std::vector<KMC_db_handle> read_accession_db_list(std::string filename);
 // Func: transform a bit representation to bp representation
 std::string bits2kmer31(uint64_t w, const std::size_t& k); 
 // Func: Read a file with a list of k-mers (need to add prefix/header to files)
-kmer_set load_kmer_raw_file(std::string filename, std::size_t set_initial_size = 100000, const bool with_scores = false); 
+kmer_set load_kmer_raw_file(std::string filename, 
+		std::size_t set_initial_size = 100000, 
+		const bool with_scores = false); 
 // Func: Read a file with a list of k-mers with scores (need to add prefix/header to files)
 kmer_set load_kmer_and_score_raw_file(std::string filename, std::size_t set_initial_size = 100000);
 // Func: bitwise-reverse of uint64

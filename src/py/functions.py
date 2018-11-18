@@ -44,3 +44,6 @@ def get_file(fn):
     else:
         return fn
 
+def multiple_phenotypes_per_accession(fn):
+    return (int(subprocess.check_output("cat %s | tail -n +2 | cut -f1 | sort | uniq -c | awk '$1>1' | wc -l"\
+            % fn, shell=True, stderr = subprocess.PIPE)[:-1]) > 0)

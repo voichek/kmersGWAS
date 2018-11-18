@@ -1,0 +1,9 @@
+[submodule "include/CTPL"]
+	path = include/CTPL
+	url = https://github.com/vit-vit/CTPL.git
+[submodule "include/KMC"]
+	path = include/KMC
+	url = https://github.com/refresh-bio/KMC.git
+[submodule "include/sparsehash"]
+	path = include/sparsehash
+	url = https://github.com/sparsehash/sparsehash.git

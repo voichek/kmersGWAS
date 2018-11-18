@@ -18,14 +18,13 @@
 /// GNU General Public License as published by the Free Software Foundation.
 ///=====================================================================================
 ///
-#ifndef KMER_MULTIPLEDB
-#define KMER_MULTIPLEDB
 
+#ifndef KMER_MULTIPLEDB_H
+#define KMER_MULTIPLEDB_H
 
 #include "kmer_general.h"
-#include "kmer_DB.h"
-
-class kmer_heap;
+#include "kmers_single_database.h"
+#include "best_associations_heap.h"
 /**
  * @class kmer_multipleDB
  * @brief class holds the information of presence/absence of k-mers
@@ -108,80 +107,6 @@ class kmer_multipleDB {
 		void write_PA(const std::string &name, const size_t &kmer_i, bedbim_handle &f) const;
 };
 
-/***********************************************************************************************************/
-/**
- * @class kmer_heap
- * @brief save a priority score of kmers
- */
-class kmer_heap {
-	public:
-		kmer_heap(std::size_t max_results);
-		void add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row);
-
-		void output_to_file(const std::string &filename) const;
-		void output_to_file_with_scores(const std::string &filename) const;
-		// it would be nice to some how create a histogram of all the scores along the way...
-		// (not only the ones we keep)
-		void plot_stat() const;
-		inline void empty_heap() {kmer_score_priority_queue().swap(m_best_kmers);} // empty heap content
-		kmer_set get_kmer_set() const;
-		kmers_output_list get_kmers_for_output(const size_t &kmer_len) const;	
-	private:
-		std::size_t m_n_res;
-		kmer_score_priority_queue m_best_kmers; // heap that will contain the scores
-		size_t cnt_kmers;
-		size_t cnt_pops;
-		size_t cnt_push;
-		double lowest_score;	
-};
-
-
-/**
- * @class kmer_multipleDB_merger
- * @brief Taking many kmer_DB's and merge to one table on the disk.
- * Filtering of k-mers can be done in this stage (minimum/maximum count, or part of predefined set)
- */
-class kmer_multipleDB_merger {
-	public:
-		kmer_multipleDB_merger(const std::vector<std::string> &DB_paths,
-				const std::vector<std::string> &db_names, 
-				const std::string &sorted_kmer_fn,
-				const uint32 &kmer_len); // Ctor takes information of the DBs
-		
-		kmer_multipleDB_merger() = delete; // no default Ctor
-		kmer_multipleDB_merger(const kmer_multipleDB_merger&) = delete; // no copy Ctor
-		kmer_multipleDB_merger& operator=(const kmer_multipleDB_merger&) = delete; // no equal opertator
-
-		~kmer_multipleDB_merger() {} // desctructor (Dtor of kmer_DB will close the open files)
-
-		// load k-mers from sorted files part of the kmer set
-		void load_kmers(const uint64_t &iter, const uint64_t &total_iter, const kmer_set &set_kmers_to_use);
-		inline void load_kmers(const uint64_t &iter, const uint64_t &total_iter)
-		{load_kmers(iter, total_iter, kmer_set());}
-		inline void load_kmers() {load_kmers(1ull,1ull);} // load all k-mers in file
-		inline void load_kmers(const kmer_set &set_kmers_to_use)
-		{load_kmers(1ull, 1ull, set_kmers_to_use);}// load all k-mers in file part of the input kmer set
-
-		void output_to_table(std::ofstream& T) const;
-		void output_table_header(std::ofstream& T) const;
-
-		void clear_content(); // clear container 
-
-	private:                                
-		std::vector<kmer_DB> m_DBs; // handles to the k-mer files
-		std::vector<std::string> m_db_names; // names of the used DBs (accession indices)
-		std::vector<uint64_t> m_kmer_temp; // temp vector to hold read k-mers
-		std::size_t m_accessions; // Number of accessions
-
-		std::size_t m_hash_words; // How many words we need to hold the k-mers
-	
-		my_hash kmers_to_index;
-		std::vector<uint64_t> container;
-
-		uint32 m_kmer_len;
-
-		kmer_DB_sorted_file m_possible_kmers;
-};
 
 
 #endif

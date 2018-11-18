@@ -158,3 +158,10 @@ kmer_set load_kmer_raw_file(string filename, size_t set_initial_size, const bool
 	return kmer_list_to_use;
 }
 
+// Close handles of bed & bim files
+void bedbim_handle::close() {
+	if(f_bed.is_open())
+		f_bed.close();
+	if(f_bim.is_open())
+		f_bim.close();
+}

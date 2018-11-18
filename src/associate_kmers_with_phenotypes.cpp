@@ -21,7 +21,8 @@
 ///
 
 #include "kmer_general.h"
-#include "kmer_multipleDB.h"
+#include "kmers_multiple_databases.h"
+#include "best_associations_heap.h"
 
 #include <sys/sysinfo.h> // To monitor memory usage
 #include <algorithm>    // 
@@ -168,6 +169,7 @@ int main(int argc, char* argv[])
 			 "Minor allele frequency")
 			("mac",			po::value<size_t>()->default_value(5), 
 			 "Minor allele count")
+			("k_mers_scores", "output the best k_mers scores in binary format")
 			("debug_option_batches_to_run",			po::value<uint64_t>()->default_value(NULL_KEY), 
 			 "Change to run only on part of the table")
 			;
@@ -279,12 +281,13 @@ int main(int argc, char* argv[])
 		 ***************************************************************************************************/
 		vector<kmers_output_list> best_kmers;	
 		for(size_t j=0; j<(phenotypes_n); j++) { // For some reason this can be improved by parallelization
-			string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
-			cerr << "output: " << fn_kmers << "\t\t";
-			cerr << "Used RAM:\t" << get_mem_used_by_process() ;
-			k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
-			cerr << "\t" << get_mem_used_by_process();
-
+			if (vm.count("k_mers_scores")) {
+				string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
+				cerr << "output: " << fn_kmers << "\t\t";
+				cerr << "Used RAM:\t" << get_mem_used_by_process() ;
+				k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
+				cerr << "\t" << get_mem_used_by_process();
+			}
 			// Create set of best k-mers
 			best_kmers.push_back(k_heap[j].get_kmers_for_output(kmer_length));
 			cerr << "\t" << get_mem_used_by_process();
@@ -312,7 +315,8 @@ int main(int argc, char* argv[])
 			cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
 				best_kmers[j].next_index = 
-					multiDB_step2.output_plink_bed_file(plink_output[j], best_kmers[j].list, best_kmers[j].next_index); // parallel ?
+					multiDB_step2.output_plink_bed_file(plink_output[j], 
+							best_kmers[j].list, best_kmers[j].next_index); // parallel ?
 				cerr << ".";
 				cerr.flush();	
 			}

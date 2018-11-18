@@ -17,7 +17,8 @@
 ///=====================================================================================
 ///
 
-#include "kmer_DB.h"
+#include "kmers_single_database.h"
+
 using namespace std;
 int main(int argc, char *argv[]) {
 	if(argc != 4) {
