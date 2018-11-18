@@ -54,10 +54,10 @@ using namespace std;
  * @param   filename path
  * @return  list of DB name and path
  */
-vector<KMC_db_handle> read_accession_db_list(string filename) {
+vector<KMCDataBaseHandle> read_accession_db_list(string filename) {
 	ifstream fin(filename);
-	vector<KMC_db_handle> res;
-	KMC_db_handle db_info;
+	vector<KMCDataBaseHandle> res;
+	KMCDataBaseHandle db_info;
 
 	while(fin >> db_info.dir_path) {
 		fin >> db_info.name;
@@ -72,7 +72,7 @@ vector<KMC_db_handle> read_accession_db_list(string filename) {
 /// @param  1. vector of uint64 representing k-mers and a set of kmers (hash set)
 /// @return 
 ///
-void filter_kmers_to_set(std::vector<uint64_t> &kmers, const kmer_set &set_kmers) {
+void filter_kmers_to_set(std::vector<uint64_t> &kmers, const KmersSet &set_kmers) {
 	// need to implement....
 	size_t move_to = 0;
 	for(size_t i=1; i<kmers.size(); i++) {
@@ -126,10 +126,10 @@ double get_time(void)
 /**
  * @brief   load a file that have a list of k-mers, with or without scores 
  * @param  file path, initial size of hash set and a flag indicating if the file is with or without scores
- * @return  kmer_set (hash set) having all the k-mers (without scores)
+ * @return  KmersSet (hash set) having all the k-mers (without scores)
  */
-kmer_set load_kmer_raw_file(string filename, size_t set_initial_size, const bool with_scores) {
-	kmer_set kmer_list_to_use(set_initial_size);
+KmersSet load_kmer_raw_file(string filename, size_t set_initial_size, const bool with_scores) {
+	KmersSet kmer_list_to_use(set_initial_size);
 	kmer_list_to_use.set_empty_key(NULL_KEY); // need to define empty value for google dense hash table
 
 	ifstream kmer_file(filename, std::ifstream::binary);
@@ -159,7 +159,7 @@ kmer_set load_kmer_raw_file(string filename, size_t set_initial_size, const bool
 }
 
 // Close handles of bed & bim files
-void bedbim_handle::close() {
+void BedBimFilesHandle::close() {
 	if(f_bed.is_open())
 		f_bed.close();
 	if(f_bim.is_open())

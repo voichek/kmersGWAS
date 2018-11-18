@@ -31,7 +31,7 @@
 using namespace std;
 
 
-kmer_multipleDB_merger::kmer_multipleDB_merger(const vector<string> &DB_paths,
+MultipleKmersDataBasesMerger::MultipleKmersDataBasesMerger(const vector<string> &DB_paths,
 		const vector<string> &db_names, 
 		const string &sorted_kmer_fn,
 		const uint32 &kmer_len):
@@ -44,7 +44,7 @@ kmer_multipleDB_merger::kmer_multipleDB_merger(const vector<string> &DB_paths,
 	container(),
 	m_kmer_len(kmer_len)
 {
-	// build all the kmer_DB objects and open the sorted k-mer file
+	// build all the KmersSingleDataBase objects and open the sorted k-mer file
 	for(size_t i=0; i < m_db_names.size(); i++) {
 		cerr << "Open DB: " << m_db_names[i] << endl;
 		m_DBs.emplace_back(DB_paths[i] , m_db_names[i], m_kmer_len);
@@ -55,22 +55,22 @@ kmer_multipleDB_merger::kmer_multipleDB_merger(const vector<string> &DB_paths,
 	kmers_to_index.set_empty_key(NULL_KEY);
 }
 
-void kmer_multipleDB_merger::output_table_header(ofstream& T) const {
+void MultipleKmersDataBasesMerger::output_table_header(ofstream& T) const {
 	T << (char)(0xAA) << (char)(0xBB) << (char)(0xCC) << (char)(0xDD) ; // constant prefix
 	T.write(reinterpret_cast<const char *>(&m_accessions), sizeof(m_accessions));			// size_t
 	T.write(reinterpret_cast<const char *>(&m_kmer_len),   sizeof(m_kmer_len));
 }
 
-void kmer_multipleDB_merger::output_to_table(ofstream& T) const {
+void MultipleKmersDataBasesMerger::output_to_table(ofstream& T) const {
 	// writing the contents of the hash map
-	for(my_hash::const_iterator it=kmers_to_index.begin(); it != kmers_to_index.end(); ++it) {		
+	for(KmerUint64Hash::const_iterator it=kmers_to_index.begin(); it != kmers_to_index.end(); ++it) {		
 		T.write(reinterpret_cast<const char *>(&(it->first)), sizeof(it->first)); // write the k-mer	
 		for(size_t i=it->second; i<(it->second+m_hash_words); i++) 
 			T.write(reinterpret_cast<const char *>(&(container[i])), sizeof(container[i])); 
 	}
 }
 
-void kmer_multipleDB_merger::clear_content() {
+void MultipleKmersDataBasesMerger::clear_content() {
 	kmers_to_index.clear();
 	container.resize(0);
 } // clear container 
@@ -84,14 +84,14 @@ void kmer_multipleDB_merger::clear_content() {
  *			so the last threshold is 001111111...111 = 0x3FFFFF...FF
  * @return  
  */
-void kmer_multipleDB_merger::load_kmers(const uint64_t &iter, const uint64_t &total_iter, const kmer_set &set_kmers) {
+void MultipleKmersDataBasesMerger::load_kmers(const uint64_t &iter, const uint64_t &total_iter, const KmersSet &set_kmers) {
 	// as k-mers are 31 bp - the largest possible value is 0011111111...1111
 	uint64_t current_threshold = ((1ull << (m_kmer_len*2ull))-1ull);
 	current_threshold = ((current_threshold / total_iter)+1)*iter;
 	cerr << iter << " / " << total_iter << "\t:\t" << bitset<WLEN>(current_threshold) << endl;
 
 	clear_content();
-	my_hash::iterator it_hash;
+	KmerUint64Hash::iterator it_hash;
 
 	uint64_t index; 
 	for(size_t acc_i = 0; acc_i < m_accessions; ++acc_i) {
@@ -110,7 +110,7 @@ void kmer_multipleDB_merger::load_kmers(const uint64_t &iter, const uint64_t &to
 		for(auto const& it: m_kmer_temp) {
 			it_hash = kmers_to_index.find(it); // find if k_mer is allready in the hash map			
 			if(it_hash == kmers_to_index.end()) { //if not
-				kmers_to_index.insert(my_hash::value_type(it, container.size()));
+				kmers_to_index.insert(KmerUint64Hash::value_type(it, container.size()));
 				index = container.size() + hashmap_i;
 				for(size_t i=0; i<m_hash_words; i++)
 					container.push_back(0);

@@ -2,9 +2,7 @@
 ///      @file  kmer_multipleDB.h
 ///     @brief  Decleration of kmer_multiDB class
 ///
-/// Class explained bellow will combine the k-mers from multiple k-mer DBs so tests
-/// on comparing the presence of k-mers in a few DBs can be compared
-///
+
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
 ///  @internal
@@ -26,42 +24,42 @@
 #include "kmers_single_database.h"
 #include "best_associations_heap.h"
 /**
- * @class kmer_multipleDB
+ * @class MultipleKmersDataBases
  * @brief class holds the information of presence/absence of k-mers
  * the class should have the ability to contain kmers presence absence information from many  DBs
  * other then that it shouldn't contain other information.
  * Different load options can be available. 
  */
-class kmer_multipleDB {
+class MultipleKmersDataBases {
 	public:
-		kmer_multipleDB(const std::string &merge_db_file, 
+		MultipleKmersDataBases(const std::string &merge_db_file, 
 				const std::vector<std::string> &db_names,
 			        const std::vector<std::string> &db_to_use,	
 				const uint32 &kmer_len); // Ctor takes information of the DBs
-		kmer_multipleDB() = delete; // no default Ctor
-		kmer_multipleDB(const kmer_multipleDB&) = delete; // no copy Ctor
-		kmer_multipleDB& operator=(const kmer_multipleDB&) = delete; // no equal opertator
+		MultipleKmersDataBases() = delete; // no default Ctor
+		MultipleKmersDataBases(const MultipleKmersDataBases&) = delete; // no copy Ctor
+		MultipleKmersDataBases& operator=(const MultipleKmersDataBases&) = delete; // no equal opertator
 
-		~kmer_multipleDB() {} // desctructor (Dtor of kmer_DB will close the open files)
+		~MultipleKmersDataBases() {} // desctructor (Dtor of KmersSingleDataBase will close the open files)
 
 		// load k-mers from sorted files part of the kmer set
-		bool load_kmers(const uint64_t &batch_size, const kmer_set &set_kmers_to_use);
+		bool load_kmers(const uint64_t &batch_size, const KmersSet &set_kmers_to_use);
 		inline bool load_kmers(const uint64_t &batch_size)
-		{return load_kmers(batch_size, kmer_set());}
+		{return load_kmers(batch_size, KmersSet());}
 		inline bool load_kmers() {return load_kmers(NULL_KEY);} // load all k-mers in file
-		inline bool load_kmers(const kmer_set &set_kmers_to_use)
+		inline bool load_kmers(const KmersSet &set_kmers_to_use)
 		{return load_kmers(NULL_KEY, set_kmers_to_use);}// load all k-mers in file part of the input kmer set
 
 		void output_kmers_textual() const; // output all k-mers found in the hash to stdout
 
 		// will output a plink bed file along a binary with kmers in the same order
 		void output_plink_bed_file(const std::string &base_name) const;
-		void output_plink_bed_file(bedbim_handle &f, const kmer_set &set_kmers) const;
-		inline void output_plink_bed_file(bedbim_handle &f) const 
-		{output_plink_bed_file(f, kmer_set());}
-		size_t output_plink_bed_file(bedbim_handle &f, const std::vector<kmer_to_print> &kmer_list, size_t index) const;
+		void output_plink_bed_file(BedBimFilesHandle &f, const KmersSet &set_kmers) const;
+		inline void output_plink_bed_file(BedBimFilesHandle &f) const 
+		{output_plink_bed_file(f, KmersSet());}
+		size_t output_plink_bed_file(BedBimFilesHandle &f, const std::vector<AssociationOutputInfo> &kmer_list, size_t index) const;
 
-		void add_kmers_to_heap(kmer_heap &kmers_and_scores, std::vector<float> scores, 
+		void add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, std::vector<float> scores, 
 				const std::size_t &min_cnt) const;
 
 
@@ -104,7 +102,7 @@ class kmer_multipleDB {
 				const std::vector<float> &scores, 
 				const float score_sum,
 				const uint64_t min_in_group = 5) const; 
-		void write_PA(const std::string &name, const size_t &kmer_i, bedbim_handle &f) const;
+		void write_PA(const std::string &name, const size_t &kmer_i, BedBimFilesHandle &f) const;
 };
 
 

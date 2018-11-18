@@ -5,17 +5,17 @@
 
 
 /**
- * @class kmer_DB_sorted_file
+ * @class KmersSingleDataBaseSortedFile
  * @brief managed accesses to a sorted k-mer file
  */
 
-class kmer_DB_sorted_file {
+class KmersSingleDataBaseSortedFile {
 	public:
-	kmer_DB_sorted_file(); // Default constructor
-	kmer_DB_sorted_file(const std::string &filename);
-	kmer_DB_sorted_file(const kmer_DB_sorted_file&) = delete;
-	kmer_DB_sorted_file(kmer_DB_sorted_file&&) = default;
-	~kmer_DB_sorted_file(); // Make sure the file is close
+	KmersSingleDataBaseSortedFile(); // Default constructor
+	KmersSingleDataBaseSortedFile(const std::string &filename);
+	KmersSingleDataBaseSortedFile(const KmersSingleDataBaseSortedFile&) = delete;
+	KmersSingleDataBaseSortedFile(KmersSingleDataBaseSortedFile&&) = default;
+	~KmersSingleDataBaseSortedFile(); // Make sure the file is close
 
 	void open_file(const std::string &filename);
 	void close_file();
@@ -37,16 +37,16 @@ class kmer_DB_sorted_file {
 
 
 
-/* class kmer_DB will represent a database of kmers
+/* class KmersSingleDataBase will represent a database of kmers
  * First, it will have a handel on the DB created by KMC and can easily open and iterate over it
  * Second, it will be able to intersect the DB with a set of kmers and output the result to an output file
  */
-class kmer_DB {
+class KmersSingleDataBase {
 	public:
-	kmer_DB(const std::string& dir_path, const std::string& db_name, const uint32& kmer_length); // Constructor
-	kmer_DB(const kmer_DB &x) = delete;
-	kmer_DB(kmer_DB&&) = default;
-	~kmer_DB() {}; //Destructor (compiler generate one automatically, but safe to be explicit)
+	KmersSingleDataBase(const std::string& dir_path, const std::string& db_name, const uint32& kmer_length); // Constructor
+	KmersSingleDataBase(const KmersSingleDataBase &x) = delete;
+	KmersSingleDataBase(KmersSingleDataBase&&) = default;
+	~KmersSingleDataBase() {}; //Destructor (compiler generate one automatically, but safe to be explicit)
 
 	// return the name of the DB
 	std::string get_name() { return m_db_name; }
@@ -56,7 +56,7 @@ class kmer_DB {
 
 	// go over the KMC DB and output to file only the kmers in the kmers set inputed
 	// output to file should be numerically ordered
-	void intersect_kmers(const kmer_set& kmers_to_use, std::string file_name);
+	void intersect_kmers(const KmersSet& kmers_to_use, std::string file_name);
 
 	// open kmer sorted file name for reading
 	void open_sorted_kmer_file(const std::string& filename) {
@@ -72,12 +72,12 @@ class kmer_DB {
 	CKMCFile get_KMC_handle();
 
 	private:
-	kmer_DB& operator=(const kmer_DB&) = delete; //same for the = operator
+	KmersSingleDataBase& operator=(const KmersSingleDataBase&) = delete; //same for the = operator
 
 	std::string m_db_name;
 	std::string m_dir_path;
 	
-	kmer_DB_sorted_file m_sorted_kmers_f;
+	KmersSingleDataBaseSortedFile m_sorted_kmers_f;
 
 	uint32 m_kmer_len; 
 };

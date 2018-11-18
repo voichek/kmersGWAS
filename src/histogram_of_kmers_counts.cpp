@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
 	}
 	string dir_path(argv[1]);
 	string db_name(argv[2]);
-	kmer_DB acc_kmers(dir_path, db_name, atoi(argv[3]));
+	KmersSingleDataBase acc_kmers(dir_path, db_name, atoi(argv[3]));
 
 	vector<size_t> counters = acc_kmers.calculate_kmers_counts_histogram();
 	

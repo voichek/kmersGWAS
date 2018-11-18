@@ -31,20 +31,20 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 	// Read accessions to use
-	vector<KMC_db_handle> db_handles = read_accession_db_list(argv[1]); 
+	vector<KMCDataBaseHandle> db_handles = read_accession_db_list(argv[1]); 
 	string output_fn(argv[2]);
 	size_t minimum_kmer_count = atoi(argv[3]);
 
 	/* Build the hash table that will contain all the kmers counts */
-	my_hash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
+	KmerUint64Hash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
 	main_db.set_empty_key(NULL_KEY); // need to define "empty key" 
 	
 	/* Defining variables to use while going over the k-mers */
 	cerr << "k-mer length " << atoi(argv[4]) << endl;
-	CKmerAPI_YV kmer_obj(atoi(argv[4]));
+	CKmerUpTo31bpAPI kmer_obj(atoi(argv[4]));
 	vector<uint64_t> k_mers;
 	uint kmer_counter;
-	my_hash::iterator it_hash;
+	KmerUint64Hash::iterator it_hash;
 
 	/* Going over all k-mers DBs */
 	for(size_t i=0; i<db_handles.size(); i++) {
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 			it_hash = main_db.find(k_mers[k]);
 			or_all |= k_mers[k];
 			if(it_hash == main_db.end()){ 
-				main_db.insert(my_hash::value_type(k_mers[k], 1));
+				main_db.insert(KmerUint64Hash::value_type(k_mers[k], 1));
 			} else { 
 				it_hash->second++;	}
 		}

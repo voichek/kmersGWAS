@@ -43,8 +43,8 @@ namespace po = boost::program_options;
 /// @return a phenotype list, pair of two vectors: 1. contain the accessions indices and the second the 
 /// phenotype for each accession
 ///
-pair<vector<string>, vector<phenotype_list>> load_phenotypes_file(const string &filename) {
-	vector<phenotype_list> p_list;
+pair<vector<string>, vector<PhenotypeList>> load_phenotypes_file(const string &filename) {
+	vector<PhenotypeList> p_list;
 	vector<string> phenotypes_names;
 
 	std::ifstream 	fin(filename);
@@ -72,10 +72,10 @@ pair<vector<string>, vector<phenotype_list>> load_phenotypes_file(const string &
 		line_n++;
 		line_tokens.resize(0);
 	}
-	return pair<vector<string>, vector<phenotype_list>> (phenotypes_names, p_list);
+	return pair<vector<string>, vector<PhenotypeList>> (phenotypes_names, p_list);
 }
 // Notice that the names of the accession in each of the phenotypes has to be the same
-void write_fam_file(const vector<phenotype_list> &phenotypes, const string &fn) {
+void write_fam_file(const vector<PhenotypeList> &phenotypes, const string &fn) {
 	ofstream f(fn, ios::out);
 	for(size_t i=0; i<phenotypes[0].first.size(); i++) {
 		f << phenotypes[0].first[i] << " " << phenotypes[0].first[i] << " 0 0 0";
@@ -91,11 +91,11 @@ void write_fam_file(const vector<phenotype_list> &phenotypes, const string &fn) 
 	f.close();
 }
 
-void write_fam_file(const phenotype_list &phenotype, const string &fn) {
-	write_fam_file(vector<phenotype_list>{phenotype}, fn);
+void write_fam_file(const PhenotypeList &phenotype, const string &fn) {
+	write_fam_file(vector<PhenotypeList>{phenotype}, fn);
 }
 
-size_t get_index_DB(const string &name, const vector<KMC_db_handle> &DBs) {
+size_t get_index_DB(const string &name, const vector<KMCDataBaseHandle> &DBs) {
 	size_t index = (~0u);
 	for(size_t j=0; j<DBs.size(); j++) {
 		if(DBs[j].name == name) {
@@ -107,8 +107,8 @@ size_t get_index_DB(const string &name, const vector<KMC_db_handle> &DBs) {
 	return index;
 }
 
-phenotype_list intersect_phenotypes_to_present_DBs(const phenotype_list &pl, const vector<KMC_db_handle> &DB_paths, const bool &must_be_present) {
-	phenotype_list intersect_pl;
+PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const vector<KMCDataBaseHandle> &DB_paths, const bool &must_be_present) {
+	PhenotypeList intersect_pl;
 	for(size_t i=0; i<pl.first.size(); i++) {
 		size_t index = get_index_DB(pl.first[i], DB_paths);
 		if(index == (~0u)) { // nothing found
@@ -122,7 +122,7 @@ phenotype_list intersect_phenotypes_to_present_DBs(const phenotype_list &pl, con
 	return intersect_pl;	
 }
 
-vector<string> get_DBs_paths(const vector<string> &names, const vector<KMC_db_handle> &DBs) {
+vector<string> get_DBs_paths(const vector<string> &names, const vector<KMCDataBaseHandle> &DBs) {
 	vector<string> paths;
 	for(size_t i=0; i<names.size(); i++) {
 		size_t index = get_index_DB(names[i], DBs);
@@ -133,7 +133,7 @@ vector<string> get_DBs_paths(const vector<string> &names, const vector<KMC_db_ha
 	return paths;
 }
 
-vector<string> get_DBs_names(const vector<KMC_db_handle> &DBs) {
+vector<string> get_DBs_names(const vector<KMCDataBaseHandle> &DBs) {
 	vector<string> names;
 	for(size_t i=0; i<DBs.size(); i++) {
 		names.push_back(DBs[i].name);
@@ -213,9 +213,9 @@ int main(int argc, char* argv[])
 
 		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
 		// Load DB paths
-		vector<KMC_db_handle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
+		vector<KMCDataBaseHandle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
 		// Loading the phenotype (also include the list of needed accessions)
-		pair<vector<string>, vector<phenotype_list>> phenotypes_info = load_phenotypes_file(
+		pair<vector<string>, vector<PhenotypeList>> phenotypes_info = load_phenotypes_file(
 				vm["phenotype_file"].as<string>());
 		size_t phenotypes_n = phenotypes_info.first.size();
 
@@ -223,23 +223,23 @@ int main(int argc, char* argv[])
 		for(size_t i=0; i<phenotypes_n; i++)
 			phenotypes_info.second[i] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[i], 
 					DB_paths, true);
-		vector<phenotype_list> p_list{phenotypes_info.second};
+		vector<PhenotypeList> p_list{phenotypes_info.second};
 
 		// Load all accessions data to a combine dataset
-		kmer_multipleDB multiDB(
+		MultipleKmersDataBases multiDB(
 				vm["kmers_table"].as<string>(),
 				get_DBs_names(DB_paths),
 				p_list[0].first, 
 				kmer_length);
 
-		kmer_multipleDB multiDB_step2(
+		MultipleKmersDataBases multiDB_step2(
 				vm["kmers_table"].as<string>(),
 				get_DBs_names(DB_paths),
 				p_list[0].first, 
 				kmer_length);
 
 		// Create heaps to save all best k-mers & scores
-		vector<kmer_heap> k_heap(phenotypes_n, kmer_heap(heap_size)); 
+		vector<BestAssociationsHeap> k_heap(phenotypes_n, BestAssociationsHeap(heap_size)); 
 		vector<std::future<void>> tp_results(k_heap.size());
 		/****************************************************************************************************
 		 *	Load all k-mers and presence/absence information and correlate with phenotypes
@@ -300,7 +300,7 @@ int main(int argc, char* argv[])
 		 *	Reload all k-mers and out to plink files only the best k-mers found in the previous stage
 		 ***************************************************************************************************/
 		// Open all bed & bim plink files	
-		vector<bedbim_handle> plink_output;
+		vector<BedBimFilesHandle> plink_output;
 		for(size_t j=0; j<(phenotypes_n); j++) {
 			plink_output.emplace_back(fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] ) ;
 			write_fam_file(p_list[j], fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] 

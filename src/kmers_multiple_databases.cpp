@@ -33,13 +33,13 @@
 using namespace std;
 
 ///
-/// @brief  Ctor of kmer_multipleDB - 
+/// @brief  Ctor of MultipleKmersDataBases - 
 /// @param 	DB_paths:	paths in the filesystem to directories containing the files of k-mers
 //		db_names:	a list of names of all the DBs to use (same order as DB_paths)
 //		sorted_kmer_fn:	filename inside each subdirectory containing the sorted k-mer list
 /// @return 
 ///
-kmer_multipleDB::kmer_multipleDB(
+MultipleKmersDataBases::MultipleKmersDataBases(
 		const string &merge_db_file,
 		const vector<string> &db_names,
 		const vector<string> &db_to_use, 	
@@ -105,7 +105,7 @@ kmer_multipleDB::kmer_multipleDB(
  * @param   size of memory batch and a set of k-mers to intersect with
  * @return return false if table file is allready finished 
  */
-bool kmer_multipleDB::load_kmers(const uint64_t &batch_size, const kmer_set &set_kmers_to_use) {
+bool MultipleKmersDataBases::load_kmers(const uint64_t &batch_size, const KmersSet &set_kmers_to_use) {
 	m_row_offset = m_kmer_loaded;
 	clear();
 	if(m_left_in_file == 0) {
@@ -150,7 +150,7 @@ bool kmer_multipleDB::load_kmers(const uint64_t &batch_size, const kmer_set &set
 /// @param  
 /// @return 
 ///
-void kmer_multipleDB::output_kmers_textual() const { // output all k-mers found in the hash to stdout
+void MultipleKmersDataBases::output_kmers_textual() const { // output all k-mers found in the hash to stdout
 	// last word length in bits
 	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
 		cout << bits2kmer31(m_kmers[kmer_i], m_kmer_len) << "\t";
@@ -192,13 +192,13 @@ void kmer_multipleDB::output_kmers_textual() const { // output all k-mers found 
 /// @param  base path to write the .bin & .bed file
 /// @return 
 /// @notes	I might need to add the logic of taking out duplicates patterns here...
-void kmer_multipleDB::output_plink_bed_file(const string &base_name) const  {
-	bedbim_handle f_handle(base_name);
+void MultipleKmersDataBases::output_plink_bed_file(const string &base_name) const  {
+	BedBimFilesHandle f_handle(base_name);
 	output_plink_bed_file(f_handle);
 	f_handle.close();
 };
 
-void kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const kmer_set &set_kmers) const  {
+void MultipleKmersDataBases::output_plink_bed_file(BedBimFilesHandle &f, const KmersSet &set_kmers) const  {
 	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
 		if((set_kmers.size() == 0) || (lookup_x(set_kmers,m_kmers[kmer_i]))) { // check k-mer in set (or empty set)
 			write_PA(bits2kmer31(m_kmers[kmer_i], m_kmer_len), kmer_i, f); 
@@ -206,7 +206,7 @@ void kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const kmer_set &se
 	}
 }
 
-void kmer_multipleDB::write_PA(const string &name, const size_t &kmer_i, bedbim_handle &f) const {
+void MultipleKmersDataBases::write_PA(const string &name, const size_t &kmer_i, BedBimFilesHandle &f) const {
 	f.f_bim << "0\t" << name << "\t0\t0\t0\t1\n"; 
 	size_t container_i = kmer_i*m_hash_words;
 	size_t acc_index = 0;
@@ -229,7 +229,7 @@ void kmer_multipleDB::write_PA(const string &name, const size_t &kmer_i, bedbim_
 
 }
 
-size_t kmer_multipleDB::output_plink_bed_file(bedbim_handle &f, const vector<kmer_to_print> &kmer_list, size_t index) const {
+size_t MultipleKmersDataBases::output_plink_bed_file(BedBimFilesHandle &f, const vector<AssociationOutputInfo> &kmer_list, size_t index) const {
 	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
 		if((index<kmer_list.size()) && 
 				(get<2>(kmer_list[index])==(kmer_i+m_row_offset))) {
@@ -268,7 +268,7 @@ void permute_scores(vector<float> &V) { // assume V is a multiplication of 128
 ////			names_scores - name of the DB the score is relevant to
 ///// @return 
 /////
-void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, vector<float> scores, 
+void MultipleKmersDataBases::add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, vector<float> scores, 
 		const size_t &min_cnt) const {
 	// Due to efficency consideration we pass scores not by reference and change it to be a multiplication of
 	// word size (saving many not neccessery "if" in the scoring procedure)
@@ -285,7 +285,7 @@ void kmer_multipleDB::add_kmers_to_heap(kmer_heap &kmers_and_scores, vector<floa
 
 
 // return the indices of DB names inserted in the class DBs
-void kmer_multipleDB::create_map_from_all_DBs() {
+void MultipleKmersDataBases::create_map_from_all_DBs() {
 	m_map_word_index.resize(0);
 	m_map_bit_index.resize(0);
 	size_t index_file_table;
@@ -321,7 +321,7 @@ void kmer_multipleDB::create_map_from_all_DBs() {
 
 #pragma GCC push_options
 #pragma GCC optimize ("unroll-loops")
-double kmer_multipleDB::calculate_kmer_score(
+double MultipleKmersDataBases::calculate_kmer_score(
 		const size_t kmer_index, 
 		const vector<float> &scores, // Scores has to be a multiplication of wordsize (64) 
 		const float score_sum,

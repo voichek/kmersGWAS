@@ -22,11 +22,11 @@
 #include "best_associations_heap.h"
 using namespace std;
 ///
-/// @brief  Ctor of kmer_heap initialized the priority queue
+/// @brief  Ctor of BestAssociationsHeap initialized the priority queue
 /// @param  what is the maximal number of results to save
 /// @return 
 ///
-kmer_heap::kmer_heap(size_t max_results):
+BestAssociationsHeap::BestAssociationsHeap(size_t max_results):
 	m_n_res(max_results),
 	m_best_kmers(),
 	cnt_kmers(0),
@@ -43,15 +43,15 @@ kmer_heap::kmer_heap(size_t max_results):
 //			kmer_row - number of the row in kmers table (will be useful for retrieving the kmer)
 /// @return 
 ///
-void kmer_heap::add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row) {
+void BestAssociationsHeap::add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row) {
 	cnt_kmers++;
 	if(m_best_kmers.size() < m_n_res) { // if heap is not full
-		m_best_kmers.push(kmer_score(k, score, kmer_row));
+		m_best_kmers.push(AssociationScoreHeap(k, score, kmer_row));
 		cnt_push++;
 		lowest_score = get<1>(m_best_kmers.top());
 	} else {
 		if(score > lowest_score) {
-			kmer_score new_res(k, score, kmer_row);
+			AssociationScoreHeap new_res(k, score, kmer_row);
 			cnt_pops++;
 			cnt_push++;
 			m_best_kmers.pop();
@@ -67,14 +67,14 @@ void kmer_heap::add_kmer(const uint64_t &k, const double &score, const uint64_t 
 /// @param  
 /// @return 
 ///
-void kmer_heap::output_to_file(const string &filename) const {
-	kmer_score_priority_queue temp_queue(m_best_kmers);
+void BestAssociationsHeap::output_to_file(const string &filename) const {
+	AssociationsPriorityQueue temp_queue(m_best_kmers);
 	ofstream of(filename, ios::binary);
 	while(!temp_queue.empty()) {
 		of.write(reinterpret_cast<const char *>(&get<0>(temp_queue.top())), sizeof(uint64_t));
 		temp_queue.pop();
 	}
-	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
+	AssociationsPriorityQueue().swap(temp_queue); //make sure that temp is really emptied
 	of.close();
 }
 
@@ -82,46 +82,46 @@ void kmer_heap::output_to_file(const string &filename) const {
 ///
 /// @brief  output the k-mers with the scores to a file
 ///
-void kmer_heap::output_to_file_with_scores(const std::string &filename) const {
-	kmer_score_priority_queue temp_queue(m_best_kmers);
+void BestAssociationsHeap::output_to_file_with_scores(const std::string &filename) const {
+	AssociationsPriorityQueue temp_queue(m_best_kmers);
 	ofstream of(filename, ios::binary);
 	while(!temp_queue.empty()) {
 		of.write(reinterpret_cast<const char *>(&get<0>(temp_queue.top())), sizeof(uint64_t));
 		of.write(reinterpret_cast<const char *>(&get<1>(temp_queue.top())), sizeof(double));
 		temp_queue.pop();
 	}
-	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
+	AssociationsPriorityQueue().swap(temp_queue); //make sure that temp is really emptied
 	of.close();
 }
 
 
 /// @brief  output all the k-mers in the heap
-/// @return a kmer_set with all the k-mers from the heap
-kmer_set kmer_heap::get_kmer_set() const {
-	kmer_set res;
+/// @return a KmersSet with all the k-mers from the heap
+KmersSet BestAssociationsHeap::get_KmersSet() const {
+	KmersSet res;
 	res.set_empty_key(NULL_KEY); // need to define empty value for google dense hash table
 
-	kmer_score_priority_queue temp_queue(m_best_kmers);
+	AssociationsPriorityQueue temp_queue(m_best_kmers);
 	while(!temp_queue.empty()) {
 		res.insert(get<0>(temp_queue.top()));
 		temp_queue.pop();
 	}
-	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
+	AssociationsPriorityQueue().swap(temp_queue); //make sure that temp is really emptied
 	return res;
 }
 
-kmers_output_list kmer_heap::get_kmers_for_output(const size_t &kmer_len) const {
+kmers_output_list BestAssociationsHeap::get_kmers_for_output(const size_t &kmer_len) const {
 	kmers_output_list res;
 	res.next_index = 0;
 
-	kmer_score_priority_queue temp_queue(m_best_kmers);
+	AssociationsPriorityQueue temp_queue(m_best_kmers);
 	while(!temp_queue.empty()) {
 		res.list.push_back(make_tuple(
 					get<0>(temp_queue.top()),temp_queue.size(),
 					get<2>(temp_queue.top())));
 		temp_queue.pop();
 	}
-	kmer_score_priority_queue().swap(temp_queue); //make sure that temp is really emptied
+	AssociationsPriorityQueue().swap(temp_queue); //make sure that temp is really emptied
 
 	// sort list
 	sort(begin(res.list), end(res.list), [](auto const &t1, auto const &t2) {
@@ -130,7 +130,7 @@ kmers_output_list kmer_heap::get_kmers_for_output(const size_t &kmer_len) const 
 }	
 
 /// @bried	output the status (pop/ push/ size) of the heap to stderr
-void kmer_heap::plot_stat() const { 
+void BestAssociationsHeap::plot_stat() const { 
 	std::cerr << "[heap-stat] max\t" << m_n_res <<
 		"\tsize\t" << m_best_kmers.size() <<
 		"\tkmers\t" << cnt_kmers <<

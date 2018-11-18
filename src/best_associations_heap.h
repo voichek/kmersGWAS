@@ -26,12 +26,12 @@
 
 /***********************************************************************************************************/
 /**
- * @class kmer_heap
+ * @class BestAssociationsHeap
  * @brief save a priority score of kmers
  */
-class kmer_heap {
+class BestAssociationsHeap {
 	public:
-		kmer_heap(std::size_t max_results);
+		BestAssociationsHeap(std::size_t max_results);
 		void add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row);
 
 		void output_to_file(const std::string &filename) const;
@@ -39,12 +39,12 @@ class kmer_heap {
 		// it would be nice to some how create a histogram of all the scores along the way...
 		// (not only the ones we keep)
 		void plot_stat() const;
-		inline void empty_heap() {kmer_score_priority_queue().swap(m_best_kmers);} // empty heap content
-		kmer_set get_kmer_set() const;
+		inline void empty_heap() {AssociationsPriorityQueue().swap(m_best_kmers);} // empty heap content
+		KmersSet get_KmersSet() const;
 		kmers_output_list get_kmers_for_output(const size_t &kmer_len) const;	
 	private:
 		std::size_t m_n_res;
-		kmer_score_priority_queue m_best_kmers; // heap that will contain the scores
+		AssociationsPriorityQueue m_best_kmers; // heap that will contain the scores
 		size_t cnt_kmers;
 		size_t cnt_pops;
 		size_t cnt_push;

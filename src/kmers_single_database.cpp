@@ -5,7 +5,7 @@
 
 using namespace std;
 
-kmer_DB::kmer_DB(const string& dir_path, const string& db_name, const uint32& kmer_length):
+KmersSingleDataBase::KmersSingleDataBase(const string& dir_path, const string& db_name, const uint32& kmer_length):
 	m_db_name(db_name),
 	m_dir_path(dir_path),
 	m_sorted_kmers_f(),
@@ -18,12 +18,12 @@ kmer_DB::kmer_DB(const string& dir_path, const string& db_name, const uint32& km
 
 
 // go over the KMC DB and output to file only the kmers in the kmers set inputed
-void kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_name) {
+void KmersSingleDataBase::intersect_kmers(const KmersSet& kmers_to_use, std::string file_name) {
 	string output_file = m_dir_path + "/" +  file_name;
 	ofstream of(output_file, ios::binary);
 
 	CKMCFile kmer_database = get_KMC_handle(); //open DB
-	CKmerAPI_YV kmer_obj(m_kmer_len);
+	CKmerUpTo31bpAPI kmer_obj(m_kmer_len);
 
 	unsigned int counter;
 	uint64_t cnt_f = 0, cnt_nf = 0, kmer;
@@ -45,9 +45,9 @@ void kmer_DB::intersect_kmers(const kmer_set& kmers_to_use, std::string file_nam
 }
 
 // Counts how many times each k-mer appeared and plot to std::cout
-vector<size_t> kmer_DB::calculate_kmers_counts_histogram() {
+vector<size_t> KmersSingleDataBase::calculate_kmers_counts_histogram() {
 	CKMCFile kmer_database = get_KMC_handle();
-	CKmerAPI_YV kmer_obj(m_kmer_len);
+	CKmerUpTo31bpAPI kmer_obj(m_kmer_len);
 	vector<size_t> counters(0, 0);
 	unsigned int counter;
 	while(kmer_database.ReadNextKmer(kmer_obj, counter)) {
@@ -59,7 +59,7 @@ vector<size_t> kmer_DB::calculate_kmers_counts_histogram() {
 }
 
 // get a hanle to the KMC DB to run over its k-mers 
-CKMCFile kmer_DB::get_KMC_handle() {
+CKMCFile KmersSingleDataBase::get_KMC_handle() {
 	CKMCFile kmer_database;
 	kmer_database.OpenForListing(m_dir_path + "/" +  m_db_name);
 
@@ -67,9 +67,9 @@ CKMCFile kmer_DB::get_KMC_handle() {
 }
 
 /**
- * Definition of class kmer_DB_sorted_file member functions
+ * Definition of class KmersSingleDataBaseSortedFile member functions
  */
-kmer_DB_sorted_file::kmer_DB_sorted_file():
+KmersSingleDataBaseSortedFile::KmersSingleDataBaseSortedFile():
 	m_fin(),
 	m_last_kmer(NULL_KEY),
 	m_kmers_in_file(NULL_KEY),
@@ -77,17 +77,17 @@ kmer_DB_sorted_file::kmer_DB_sorted_file():
 	}
 
 
-kmer_DB_sorted_file::kmer_DB_sorted_file(const std::string &filename):
-	kmer_DB_sorted_file() {
+KmersSingleDataBaseSortedFile::KmersSingleDataBaseSortedFile(const std::string &filename):
+	KmersSingleDataBaseSortedFile() {
 		open_file(filename);
 	}
 
-kmer_DB_sorted_file::~kmer_DB_sorted_file() {// Make sure the file is close
+KmersSingleDataBaseSortedFile::~KmersSingleDataBaseSortedFile() {// Make sure the file is close
 	if(m_fin.is_open()) {
 		close_file();
 	}
 }
-void kmer_DB_sorted_file::open_file(const std::string &filename) {
+void KmersSingleDataBaseSortedFile::open_file(const std::string &filename) {
 	if(m_fin.is_open()) { // First check if file is allready open
 		close_file();
 	}
@@ -112,7 +112,7 @@ void kmer_DB_sorted_file::open_file(const std::string &filename) {
 	}
 }
 
-void kmer_DB_sorted_file::close_file() {
+void KmersSingleDataBaseSortedFile::close_file() {
 	if(m_fin.is_open()) {
 		m_fin.close();
 		m_last_kmer = NULL_KEY;
@@ -121,13 +121,13 @@ void kmer_DB_sorted_file::close_file() {
 	}
 }
 
-void kmer_DB_sorted_file::read_kmer() {
+void KmersSingleDataBaseSortedFile::read_kmer() {
 	m_fin.read(reinterpret_cast<char *>(&m_last_kmer), sizeof(m_last_kmer));
 	m_kmers_count++;
 }
 
 
-void kmer_DB_sorted_file::load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers) {
+void KmersSingleDataBaseSortedFile::load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers) {
 	if(!m_fin.is_open()) {
 		throw std::logic_error("Trying to read k-mers from a non-open file.");
 	}

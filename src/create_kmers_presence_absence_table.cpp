@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Read accessions to use
-	vector<KMC_db_handle> db_handles = read_accession_db_list(argv[1]); 
+	vector<KMCDataBaseHandle> db_handles = read_accession_db_list(argv[1]); 
 	vector<string> db_paths, db_names;
 	
 	for(size_t i=0; i<db_handles.size(); i++) {
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 		db_paths.push_back(db_handles[i].dir_path);
 	}
 	cerr << "Create merger" << endl;	
-	kmer_multipleDB_merger merger(db_paths, db_names, argv[2], atoi(argv[4]));
+	MultipleKmersDataBasesMerger merger(db_paths, db_names, argv[2], atoi(argv[4]));
 	
 	cerr << "open file" << endl;
 	ofstream fout(argv[3], ios::binary);
