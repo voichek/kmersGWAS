@@ -37,13 +37,13 @@ BestAssociationsHeap::BestAssociationsHeap(size_t max_results):
 
 
 ///
-/// @brief  add_kmer - add a new kmer to the heap
+/// @brief  add_association - add a new kmer to the heap
 /// @param  k - kmer
 //			score - kmers score
 //			kmer_row - number of the row in kmers table (will be useful for retrieving the kmer)
 /// @return 
 ///
-void BestAssociationsHeap::add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row) {
+void BestAssociationsHeap::add_association(const uint64_t &k, const double &score, const uint64_t &kmer_row) {
 	cnt_kmers++;
 	if(m_best_kmers.size() < m_n_res) { // if heap is not full
 		m_best_kmers.push(AssociationScoreHeap(k, score, kmer_row));
@@ -128,6 +128,26 @@ kmers_output_list BestAssociationsHeap::get_kmers_for_output(const size_t &kmer_
 			return get<2>(t1) < get<2>(t2);});
 	return res;
 }	
+
+
+///
+/// @brief  output only the index of the rows from the associations
+/// @param  
+/// @return output is sorted
+///
+vector<size_t> BestAssociationsHeap::get_rows_sorted_indices() const {
+	vector<size_t> index_list;
+	
+	AssociationsPriorityQueue temp_queue(m_best_kmers);
+	while(!temp_queue.empty()) {
+		index_list.push_back(get<2>(temp_queue.top()));
+		temp_queue.pop();
+	}
+	AssociationsPriorityQueue().swap(temp_queue); //make sure that temp is really emptied
+
+	sort(index_list.begin(), index_list.end());
+	return index_list;
+}
 
 /// @bried	output the status (pop/ push/ size) of the heap to stderr
 void BestAssociationsHeap::plot_stat() const { 

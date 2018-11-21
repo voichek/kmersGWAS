@@ -243,21 +243,6 @@ size_t MultipleKmersDataBases::output_plink_bed_file(BedBimFilesHandle &f, const
 }
 
 
-// Permuting the order of the phenotypes for the implementation of the scoring
-void permute_scores(vector<float> &V) { // assume V is a multiplication of 128
-	vector<float> R(V.size());
-	size_t index =0;
-	for(size_t offset=0; offset<V.size(); offset+=128) {
-		for(size_t i=0; i<32; i++) {
-			for(size_t j=0; j<128; j+=32) {
-//				cerr << index << "\t" << offset << "\t" << i << "\t" << j << endl;
-				R.at(index) = V.at(31-i+j+offset);//at just for checking 
-				index++;
-			}
-		}
-	}
-	V.swap(R);
-}
 
 
 /////
@@ -278,7 +263,7 @@ void MultipleKmersDataBases::add_kmers_to_heap(BestAssociationsHeap &kmers_and_s
 	for(size_t i=0; i<scores.size(); i++) 
 		sum_scores += scores[i];
 	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++)
-		kmers_and_scores.add_kmer(m_kmers[kmer_index], 
+		kmers_and_scores.add_association(m_kmers[kmer_index], 
 				calculate_kmer_score(kmer_index, scores, sum_scores,  min_cnt),
 				m_row_offset + kmer_index);
 }
@@ -313,12 +298,6 @@ void MultipleKmersDataBases::create_map_from_all_DBs() {
 /**
  *  * SSE 4.1 implementation.
  *   */
-
-//inline float dotSSE41(__m128 f[32], unsigned char maskArg[16]){
-//
-//	return sumsf[0] + sumsf[1] + sumsf[2] + sumsf[3];
-//}
-
 #pragma GCC push_options
 #pragma GCC optimize ("unroll-loops")
 double MultipleKmersDataBases::calculate_kmer_score(

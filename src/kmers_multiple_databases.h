@@ -26,7 +26,7 @@
 /**
  * @class MultipleKmersDataBases
  * @brief class holds the information of presence/absence of k-mers
- * the class should have the ability to contain kmers presence absence information from many  DBs
+ * the class should have the ability to contain kmers presence absence information from many DBs
  * other then that it shouldn't contain other information.
  * Different load options can be available. 
  */
@@ -66,9 +66,6 @@ class MultipleKmersDataBases {
 		inline const std::vector<std::string> get_dbs_names() 
 		{ return m_db_names_table; }	// return the list of db names in this class
 
-		// return the indices of DB names inserted in the class DBs
-
-
 		void clear() {m_kmers.resize(0); m_kmers_table.resize(0); m_kmers_popcnt.resize(0);} // clear hashtable
 
 	private:                                
@@ -76,14 +73,14 @@ class MultipleKmersDataBases {
 		std::vector<std::string> m_db_names_table;	// Names of DB to use (table will be squeezed)
 		std::size_t m_accessions_db_file;		// Number of DBs in table file 
 		std::size_t m_accessions;			// Number of DBs to use (real number of "columns" in save table)
-		
+
 		/* tables (file&memory) related parameteres */
 		std::ifstream m_kmer_table_file;		// Handel to the table file
 		std::size_t m_hash_words_db_file;		// Number of words for "row" in the table file
 		std::size_t m_hash_words;			// Number of words for "row" in memory table
 		std::vector<uint64_t> m_kmers;			// List of k-mers (row names)
-		std::vector<uint64_t> m_kmers_table;		// Memort table content
-		std::vector<double> m_kmers_popcnt;		// Memort table content
+		std::vector<uint64_t> m_kmers_table;		// Memory table content
+		std::vector<double> m_kmers_popcnt;		// Memory table content
 		uint32 m_kmer_len;				// k-mer length
 		std::size_t m_left_in_file;			// Number of bytes in table file not read
 		std::size_t m_kmer_number;			// Number of k-mers in table file not read
@@ -104,8 +101,6 @@ class MultipleKmersDataBases {
 				const uint64_t min_in_group = 5) const; 
 		void write_PA(const std::string &name, const size_t &kmer_i, BedBimFilesHandle &f) const;
 };
-
-
 
 #endif
 

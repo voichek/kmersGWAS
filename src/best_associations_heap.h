@@ -32,7 +32,7 @@
 class BestAssociationsHeap {
 	public:
 		BestAssociationsHeap(std::size_t max_results);
-		void add_kmer(const uint64_t &k, const double &score, const uint64_t &kmer_row);
+		void add_association(const uint64_t &k, const double &score, const uint64_t &kmer_row);
 
 		void output_to_file(const std::string &filename) const;
 		void output_to_file_with_scores(const std::string &filename) const;
@@ -41,7 +41,8 @@ class BestAssociationsHeap {
 		void plot_stat() const;
 		inline void empty_heap() {AssociationsPriorityQueue().swap(m_best_kmers);} // empty heap content
 		KmersSet get_KmersSet() const;
-		kmers_output_list get_kmers_for_output(const size_t &kmer_len) const;	
+		kmers_output_list get_kmers_for_output(const size_t &kmer_len) const;
+		std::vector<std::size_t> get_rows_sorted_indices() const;
 	private:
 		std::size_t m_n_res;
 		AssociationsPriorityQueue m_best_kmers; // heap that will contain the scores
