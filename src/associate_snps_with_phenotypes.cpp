@@ -36,7 +36,7 @@ using namespace std;
 int main(int argc, char* argv[])
 {
 	if(argc != 6) {
-		cerr << "usage: " << argv[0] << " <phenotypes file> <base bedbim file> <base output files> <snps to output> <maf>" << endl;
+		cerr << "usage: " << argv[0] << " <phenotypes file> <base bedbim file> <base output files> <# snps to output> <maf>" << endl;
 		return 1;
 	}
 	// load phenotypes

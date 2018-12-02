@@ -28,7 +28,7 @@ import sys
 paths = {}
 paths["base_path"] = "/".join(sys.path[0].split("/")[:-2]) + "/"
 paths["gen_script"] = paths["base_path"] + "src/py/functions.py"
-paths["assoicte_kmers"] = paths["base_path"] + "bin/F_correlate_kmers_to_phenotype"
+paths["assoicte_kmers"] = paths["base_path"] + "bin/associate_kmers_with_phenotypes"
 paths["Permute_phenotype"] = paths["base_path"] + "src/R/transform_and_permute_phenotypes.R"
 paths["kinship_intersect_script"] = paths["base_path"] + "src/py/align_kinship_phenotype.py"
 paths["parser_script"] = paths["base_path"] + "src/py/pipeline_parser.py"
@@ -63,44 +63,32 @@ def main():
 
     # Information on SNPs dataset
     paths["snps_fam"] = args.snps_matrix + ".fam"
+    paths["snps_kinship"] = args.snps_matrix + ".kinship" 
 
 
     # Creating kinship matrix
     paths["pheno_intersected_fn"] = "%s/%s.intersected_phenoo" % (args.outdir, args.name)
-    paths["kinship_ibs_fn"] = "%s/%s.kinship.ibs" % (args.outdir, args.name)
-    paths["kinship_gemma_fn"] = "%s/%s.kinship.gemma" % (args.outdir, args.name)
-    
+    paths["kinship_fn"] = "%s/%s.kinship" % (args.outdir, args.name)
     cur_cmd = "python2.7 %s --pheno %s --fam_file %s --kinship_file %s --output_pheno  %s " + \
             "--output_kinship %s --DBs_list %s"
     cur_cmd = cur_cmd % (paths["kinship_intersect_script"], paths["pheno_orig_fn"], paths["snps_fam"], 
-            args.kinship_IBS, paths["pheno_intersected_fn"], paths["kinship_ibs_fn"], args.db_list)
-    if args.verbose:
-        cur_cmd = cur_cmd + " -v"
-    f_log.writelines("RUN: " + cur_cmd)
-
+            paths["snps_kinship"], paths["pheno_intersected_fn"], paths["kinship_fn"], args.db_list)
+    f_log.writelines("RUN: " + cur_cmd + "\n")
     os.system(cur_cmd)
     
-    cur_cmd = "python2.7 %s --pheno %s --fam_file %s --kinship_file %s --output_kinship %s --DBs_list %s"
-    cur_cmd = cur_cmd % (paths["kinship_intersect_script"], paths["pheno_orig_fn"], paths["snps_fam"], \
-            args.kinship_GEMMA, paths["kinship_gemma_fn"], args.db_list)
-    if args.verbose:
-        cur_cmd = cur_cmd + " -v"
-    f_log.writelines("RUN: " + cur_cmd)
-    os.system(cur_cmd)
-
     # Transformation of the phenotypes and creating permutations of phenotype
     paths["pheno_permuted_fn"] = "%s/%s.permuted_pheno" % (args.outdir, args.name)
     paths["pheno_permuted_transformed_fn"] = "%s/%s.permuted_transformed_pheno" % (args.outdir, args.name)
     paths["EMMA_perm_log_fn"] = "%s/EMMA_perm.log" % (args.outdir)
     paths["log_R_permute"] =    "%s/r_permute.log" % (args.outdir)
     cur_cmd = "Rscript %s %s %s %d %s %s %s > %s"
-    cur_cmd = cur_cmd % (paths["Permute_phenotype"] , paths["pheno_intersected_fn"], paths["kinship_ibs_fn"],\
+    cur_cmd = cur_cmd % (paths["Permute_phenotype"] , paths["pheno_intersected_fn"], paths["kinship_fn"],\
            args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"], 
            paths["EMMA_perm_log_fn"], paths["log_R_permute"])
-    f_log.writelines("RUN: " + cur_cmd)
+    f_log.writelines("RUN: " + cur_cmd + "\n")
     os.system(cur_cmd)
 
-    paths["kmers_associations_dir"] = "%s/F_corr_output" % args.outdir
+    paths["kmers_associations_dir"] = "%s/kmers" % args.outdir
     os.system("mkdir %s" % paths["kmers_associations_dir"])
 
     cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --paths_file %s --kmers_table %s --kmer_len %d"  %\
@@ -109,12 +97,12 @@ def main():
                     args.kmers_table, args.kmers_len)
     paths["log_F_corr"] =    "%s/f_corr.log" % (args.outdir)
     cur_cmd = cur_cmd + " 2> %s" % paths["log_F_corr"]
-    f_log.writelines("RUN: " + cur_cmd)
+    f_log.writelines("RUN: " + cur_cmd + "\n")
     os.system(cur_cmd)
 
     # for all the fam files, move to fam.orig and create a new fam file with the non-transformed phenotype
     phenotypes_names = file(paths["pheno_permuted_fn"] ,"r").read().split("\n")[0].split("\t")[1:]
-    f_log.writelines("We have %d phenotypes" % len(phenotypes_names))
+    f_log.writelines("We have %d phenotypes\n" % len(phenotypes_names) )
     for (p_ind, p_name) in enumerate(phenotypes_names):
         bed_fn = get_file_type_in_dir(paths["kmers_associations_dir"], "%s.bed" % p_name)
         bim_fn = get_file_type_in_dir(paths["kmers_associations_dir"], "%s.bim" % p_name)
@@ -124,21 +112,21 @@ def main():
         # building the fam file to run gemma
         cur_cmd = r"""cat %s | tail -n +2 | awk '{print $1 " " $1 " 0 0 0 " $%d}' > %s""" % \
                 (paths["pheno_permuted_fn"], p_ind +2,  fam_fn)
-        f_log.writelines("RUN: " + cur_cmd)
+        f_log.writelines("RUN: " + cur_cmd + "\n")
         os.system(cur_cmd)
         # run gemma on best k-mers
         cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -maf 0.05 -miss 0.5 &" % \
-                (args.gemma_path, base_name,  paths["kinship_gemma_fn"], \
+                (args.gemma_path, base_name,  paths["kinship_fn"], \
                 paths["kmers_associations_dir"] + "/output", p_name)
         while count_running_gemma() >= (args.parallel-1):
             time.sleep(30)
         
         time.sleep(1)
-        f_log.writelines("RUN: " + cur_cmd)
+        f_log.writelines("RUN: " + cur_cmd + "\n")
         os.system(cur_cmd)
 
     if args.run_snps:
-        paths["snps_associations_dir"] = "%s/SNPs" % args.outdir
+        paths["snps_associations_dir"] = "%s/snps" % args.outdir
         os.system("mkdir %s" % paths["snps_associations_dir"])
 
         paths["snps_table_fn"] = "%s/snps.plink" % paths["snps_associations_dir"]
@@ -164,13 +152,13 @@ def main():
         # run gemma (using the full kinship matrix ofcourse...)
         for (p_ind, p_name) in enumerate(phenotypes_names):
             cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf 0.05 -miss 0.5 &" % \
-                    (args.gemma_path, paths["snps_table_fn"], args.kinship_GEMMA, \
+                    (args.gemma_path, paths["snps_table_fn"], paths["snps_kinship"], \
                     paths["snps_associations_dir"] + "/output", \
                     p_name, p_ind+1)
             while count_running_gemma() >= (args.parallel-1):
                 time.sleep(30)
             time.sleep(1)
-            f_log.writelines("RUN: " + cur_cmd)
+            f_log.writelines("RUN: " + cur_cmd + "\n")
             os.system(cur_cmd)
         while count_running_gemma() != 0:
             time.sleep(30)
