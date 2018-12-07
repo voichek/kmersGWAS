@@ -50,6 +50,7 @@ n_permute <- as.numeric(args[3])
 fn_out_phenotypes <- args[4]
 fn_out_trans_phenotypes <- args[5]
 f_log <- file(args[6])
+f_log_grammar <- paste(args[5],".log",sep="")
 # 1. Load phenotype file
 phenotypes <- read.csv(fn_phenotypes,sep='\t',header=TRUE)
 av_pheno <- mean(phenotypes$phenotype_value)
@@ -97,10 +98,23 @@ if(n_permute > 0) {
 
 # 4. Transform phenotypes
 trans_phenotypes <- phenotypes
+grammar_run_info <- data.frame(phenotype = I(array(data="",dim=n_permute+1)),
+                               GRAMMAR_Gamma_Test = array(data="",dim=n_permute+1),
+                               GRAMMAR_Gamma_Beta = array(data="",dim=n_permute+1),
+                               GRAMMAR_Gamma_esth2 = array(data="",dim=n_permute+1))
+
 for(i in 2:(n_permute+2)) {
-  trans_phenotypes[,i] <- polygenic(phenotypes[,i], K,data.frame(c()), quiet = TRUE)$pgresidualY
+  cur_pre_GRAMMAR_Gamma <- polygenic(phenotypes[,i], K,data.frame(c()), quiet = TRUE)
+  # Save GRAMMAR Gamma run information
+  grammar_run_info$phenotype[i-1] <- colnames(phenotypes)[i]
+  grammar_run_info$GRAMMAR_Gamma_Test[i-1] <- cur_pre_GRAMMAR_Gamma$grammarGamma$Test
+  grammar_run_info$GRAMMAR_Gamma_Beta[i-1] <- cur_pre_GRAMMAR_Gamma$grammarGamma$Beta
+  grammar_run_info$GRAMMAR_Gamma_esth2[i-1] <- cur_pre_GRAMMAR_Gamma$esth2
+  trans_phenotypes[,i] <- cur_pre_GRAMMAR_Gamma$pgresidualY
 }
 
+# Log GRAMMAR-Gamma run information
+write.csv(x = grammar_run_info, file = f_log_grammar, quote=FALSE,sep="\t",row.names = FALSE)
 # 5. Linearly transform transformed phenotypes
 # trans_phenotypes[,2:(n_permute+2)] <- linear_trans_to_natural_numbers(trans_phenotypes[,2:(n_permute+2)])
 
