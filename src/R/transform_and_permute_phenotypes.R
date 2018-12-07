@@ -29,17 +29,7 @@ library(matrixcalc)
 source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/genabel/polygenic.R')
 source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/genabel/polylik.R')
 source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/emma.R')
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-linear_trans_to_natural_numbers <- function(x) {
-  x <- x-min(x)
-  max_x <- max(x)
-  if(max_x > (10^6)) {
-    stop('Not clear how to convert phenotype to natural numbers')
-  }
-  x <- round(x * (10^8 / max_x))
-  return(x)
-}
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
 args <- commandArgs(trailingOnly = TRUE)
 
 set.seed(123456789) # To have a reporducible results
@@ -51,6 +41,8 @@ fn_out_phenotypes <- args[4]
 fn_out_trans_phenotypes <- args[5]
 f_log <- file(args[6])
 f_log_grammar <- paste(args[5],".log",sep="")
+
+
 # 1. Load phenotype file
 phenotypes <- read.csv(fn_phenotypes,sep='\t',header=TRUE)
 av_pheno <- mean(phenotypes$phenotype_value)
@@ -60,13 +52,13 @@ n_acc = nrow(phenotypes)
 # 2. Load kinship matrix
 K <- read.csv(fn_kinship, sep='\t',header =FALSE)
 K <- as.matrix(K[,1:(dim(K)[2]-1)])
-
-### Check matrix is positive semi-definite
+# Check matrix is positive semi-definite
 if(!is.positive.semi.definite(K)) {
   writeLines('Kinship matrix is not positive semi-definite')
   quit()
 }
-### 
+
+# 3. Use EMMA to calculate the variance components
 null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = c(n_acc,1)),K)
 herit <- null$vg/(null$vg+null$ve)
 COV_MATRIX <- null$vg*K+null$ve*diag(dim(K)[1])
@@ -77,26 +69,15 @@ writeLines(c(paste('EMMA_n_permutation','=',n_permute),
              paste('EMMA_ve','=',null$ve), 
              paste('EMMA_herit','=',herit)),f_log)
 close(f_log)
-if(n_permute > 0) {
-  # K_stand <- (n_acc-1)/sum((diag(n_acc)-matrix(1,n_acc,n_acc)/n_acc)*K)*K #Doesn't effect COV_MATRIX
 
-  # Part of second option to permute phenotypes
-  # M <- solve(chol(COV_MATRIX))
-  # Y_t <- crossprod(M,phenotypes$phenotype_value)
-  # M_inv <- ginv(M)
-  
+# 4. Permute the phenotypes if needed
+if(n_permute > 0) {
   permute_phenotype <- mvnpermute(phenotypes$phenotype_value, rep(1, n_acc), COV_MATRIX, nr=n_permute, seed=123456789)
-  
   # 3. Permute phenotypes
-  for(i in 1:n_permute) {
-    phenotypes[paste("P",i, sep = '')] <- permute_phenotype[,i]
-    # cur_perm = sample(1:n_acc)
-    # Part of second method to permute phenotypes
-    # phenotypes[paste("P",i, sep = '')] <- crossprod(M_inv, Y_t[cur_perm])
-  }
+  for(i in 1:n_permute) { phenotypes[paste("P",i, sep = '')] <- permute_phenotype[,i] }
 }
 
-# 4. Transform phenotypes
+# 5. Transform phenotypes with GRAMMAR-Gamma
 trans_phenotypes <- phenotypes
 grammar_run_info <- data.frame(phenotype = I(array(data="",dim=n_permute+1)),
                                GRAMMAR_Gamma_Test = array(data="",dim=n_permute+1),
@@ -112,13 +93,11 @@ for(i in 2:(n_permute+2)) {
   grammar_run_info$GRAMMAR_Gamma_esth2[i-1] <- cur_pre_GRAMMAR_Gamma$esth2
   trans_phenotypes[,i] <- cur_pre_GRAMMAR_Gamma$pgresidualY
 }
-
 # Log GRAMMAR-Gamma run information
-write.csv(x = grammar_run_info, file = f_log_grammar, quote=FALSE,sep="\t",row.names = FALSE)
-# 5. Linearly transform transformed phenotypes
-# trans_phenotypes[,2:(n_permute+2)] <- linear_trans_to_natural_numbers(trans_phenotypes[,2:(n_permute+2)])
+write.table(x = grammar_run_info, file = f_log_grammar, quote=FALSE,sep="\t",row.names = FALSE,eol="\n")
 
-# 6. Output phenotypes before and after transformation (4+)5
+# 6. Output phenotype information
+# Output phenotypes before and after transformation (4+)5
 write.table(x=phenotypes, file=fn_out_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
 # options(scipen=20)
 write.table(x=trans_phenotypes, file=fn_out_trans_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
