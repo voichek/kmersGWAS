@@ -98,7 +98,7 @@ class MultipleKmersDataBases {
 				const std::size_t kmer_index, 
 				const std::vector<float> &scores, 
 				const float score_sum,
-				const uint64_t min_in_group = 5) const; 
+				const uint64_t min_in_group) const; 
 		void write_PA(const std::string &name, const size_t &kmer_i, BedBimFilesHandle &f) const;
 };
 

@@ -50,9 +50,11 @@ class MultipleSNPsDataBases {
 		std::size_t m_n_bytes_per_snp;			// bytes of information in bed file per snp
 		std::vector<uint64_t> m_presence_absence;       // presence/absence table
 		std::vector<uint64_t> m_missing;       		// missing/non-missing table
-		std::vector<double> m_presence_absence_popcnt;	// Number of presence
-		std::vector<double> m_presence_absence_total;	// Number of presence&absence (no hetrozygous or missing)
+		std::vector<uint64_t> m_hetrozygous;   		// Hetrozygous table (1 - hetrozgous | 0 - otherwise)
 
+		std::vector<double> m_presence_absence_popcnt;	// Number of presence (hetrozygous or homozygous)
+		std::vector<double> m_presence_absence_total;	// Number of presence&absence (no missing)
+		std::vector<double> m_S_gi_2;			// Sum genotype square
 		std::vector<std::string> get_names_from_fam_file(const std::string &fam_fn) const;
 		std::tuple<std::vector<std::size_t>, std::vector<std::size_t> >  
 			create_map_from_all_samples(

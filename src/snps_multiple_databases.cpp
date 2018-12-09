@@ -28,7 +28,6 @@
 #include <numeric>
 #include <sstream>
 
-
 using namespace std;
 
 /* Defines */
@@ -80,8 +79,10 @@ MultipleSNPsDataBases::MultipleSNPsDataBases(const string &base_name_bedbim,
 	m_n_bytes_per_snp(),
 	m_presence_absence(),
 	m_missing(),
+	m_hetrozygous(),
 	m_presence_absence_popcnt(),
-	m_presence_absence_total()
+	m_presence_absence_total(),
+	m_S_gi_2()
 {
 	vector<string> all_samples = get_names_from_fam_file(m_base_name + ".fam");
 	auto map_snps_table_to_current_samples = 
@@ -95,6 +96,7 @@ MultipleSNPsDataBases::MultipleSNPsDataBases(const string &base_name_bedbim,
 		throw std::logic_error("Bed file is too small");
 	size_t n_samples_bedbim = all_samples.size();
 	size_t n_samples = m_samples_names.size();
+
 	m_n_bytes_per_snp = (4+n_samples_bedbim-1) / 4;
 	m_n_snps = (bed_file_size-3) / m_n_bytes_per_snp;
 	if(bed_file_size != ((m_n_snps * m_n_bytes_per_snp)+3)) 
@@ -105,41 +107,73 @@ MultipleSNPsDataBases::MultipleSNPsDataBases(const string &base_name_bedbim,
 	// build containers
 	m_presence_absence.resize(m_uint64_words * m_n_snps, 0);
 	m_missing.resize(m_uint64_words * m_n_snps, 0);
+	m_hetrozygous.resize(m_uint64_words * m_n_snps, 0);
+	
 	m_presence_absence_popcnt.resize(m_n_snps, 0);
 	m_presence_absence_total.resize(m_n_snps, 0);
+	m_S_gi_2.resize(m_n_snps, 0);
 
 	// read bed file into memory
 	// 00 (a/a) -> 0 (+1 count | +0 popcnt)
 	// 01 (NaN) -> 0 (+0 count | +0 popcnt)
-	// 10 (A/a) -> 0 (+0 count | +0 popcnt) - we treat at hetrozygous as nan
+	// 10 (A/a) -> 0 (+1/2 count | +1 popcnt)
 	// 11 (A/A) -> 0 (+1 count | +1 popcnt)
-	uint64_t _dubit_to_popcnt[] = {0,0,0,1};
+	double _dubit_to_popcnt[] = {0,0,0.5,1};
 	uint64_t _dubit_to_bit[] = {0,0,0,1};
-	uint64_t _dubit_to_total[] = {1,0,0,1};
+	uint64_t _dubit_to_total[] = {1,0,1,1};
+	uint64_t _dubit_to_hetrozygous[] = {0,0,1,0};
 
 	vector<unsigned char> buffer(m_n_bytes_per_snp); // reading buffer
 	size_t offset = 0;
 	for(size_t i=0; i<m_n_snps; ++i) {
 		bed_file.read(reinterpret_cast<char *>(buffer.data()), sizeof(char)*buffer.size());
 		// Organize them into place
-		uint64_t cur_popcnt = 0;
+		double cur_popcnt = 0;
+		double cur_S_gi_2 = 0;
 		uint64_t cur_total = 0;
 		for(size_t si=0; si<n_samples; ++si) {
 			uint64_t dubit = (buffer[get<0>(map_snps_table_to_current_samples)[si]] >>
 					get<1>(map_snps_table_to_current_samples)[si]) & 0x03;
+
 			cur_popcnt += _dubit_to_popcnt[dubit];
+			cur_S_gi_2 += _dubit_to_popcnt[dubit]*_dubit_to_popcnt[dubit];
 			cur_total += _dubit_to_total[dubit];
+
 			m_presence_absence[offset + (si >> 6)] ^= _dubit_to_bit[dubit] << (si & 0x3f);
 			m_missing[offset + (si >> 6)] ^= _dubit_to_total[dubit] << (si & 0x3f);
+			m_hetrozygous[offset + (si >> 6)] ^= _dubit_to_hetrozygous[dubit] << (si & 0x3f);
 		}
-		m_presence_absence_popcnt[i] = static_cast<double>(cur_popcnt);
+		m_presence_absence_popcnt[i] = cur_popcnt;
+		m_S_gi_2[i] = cur_S_gi_2;
 		m_presence_absence_total[i] =  static_cast<double>(cur_total);
 		offset += m_uint64_words;
-
 	}
 	// close bed file
 	bed_file.close();	
 }
+
+///
+/// @brief  caluclate the approximated score for associations
+/// @param  phenotypes (size multiply of 128), snp index, and minor allele count (MAC)
+/// @return score
+///
+double MultipleSNPsDataBases::calculate_grammmar_approx_association(
+		const vector<float> &phenotypes,const size_t &index, const double &mac) const {
+	if((mac>m_presence_absence_popcnt[index]) || (mac>(m_presence_absence_total[index]-m_presence_absence_popcnt[index]))) 
+		return 0;
+	size_t index_in_vector = index*m_uint64_words;
+	double yigi = dot_product_SSE4(phenotypes, m_presence_absence.begin() + index_in_vector, m_uint64_words)+
+		      dot_product_SSE4(phenotypes, m_hetrozygous.begin() + index_in_vector, m_uint64_words) * 0.5; // S(gi*ri)
+	double score_sum = dot_product_SSE4(phenotypes, m_missing.begin() + index_in_vector, m_uint64_words); //S(vi*ri)
+	double N = m_presence_absence_total[index]; // sum !is.na
+	double S_gi = m_presence_absence_popcnt[index]; // S(gi) - N1
+	double S_gi_2 = m_S_gi_2[index]; // S(gi*gi)
+
+	double r =  N*yigi - S_gi*score_sum;
+	r = r*r;
+	return r / (N*(N*S_gi_2 -  S_gi*S_gi));
+}
+
 
 ///
 /// @brief  Reads a fam file and return the name of the samples
@@ -254,21 +288,3 @@ void MultipleSNPsDataBases::output_plink_bed_file(const vector<string> &files_ba
 		output_files_handles[i].close();
 }
 
-///
-/// @brief  caluclate the approximated score for associations
-/// @param  phenotypes (size multiply of 128), snp index, and minor allele count (MAC)
-/// @return score
-///
-double MultipleSNPsDataBases::calculate_grammmar_approx_association(
-		const vector<float> &phenotypes,const size_t &index, const double &mac) const {
-	if((mac>m_presence_absence_popcnt[index]) || (mac>(m_presence_absence_total[index]-m_presence_absence_popcnt[index]))) 
-		return 0;
-	size_t index_in_vector = index*m_uint64_words;
-	double yigi = dot_product_SSE4(phenotypes, m_presence_absence.begin() + index_in_vector, m_uint64_words);
-	double score_sum = dot_product_SSE4(phenotypes, m_missing.begin() + index_in_vector, m_uint64_words);
-	double N = m_presence_absence_total[index];
-	double N1 = m_presence_absence_popcnt[index];
-	double r =  N*yigi - N1*score_sum;
-	r = r*r;
-	return r / (N*N1 -  N1*N1);
-}

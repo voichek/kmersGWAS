@@ -312,11 +312,11 @@ double MultipleKmersDataBases::calculate_kmer_score(
 	double N0 = N-N1;
 	if((min_in_group <= N0) && (min_in_group <= N1)) {
 		// Variables for the scoring with SSE4
-		__m128   mask ALIGNTO(16);
-		__m128   f		   ALIGNTO(16);
-		__m128   zblended  ALIGNTO(16);
-		__m128   sums      ALIGNTO(16) = _mm_setzero_ps();
-		float    sumsf[4]  ALIGNTO(16);
+		__m128   mask 		ALIGNTO(16);
+		__m128   f	  	ALIGNTO(16);
+		__m128   zblended 	ALIGNTO(16);
+		__m128   sums     	ALIGNTO(16) = _mm_setzero_ps();
+		float    sumsf[4] 	ALIGNTO(16);
 		
 		size_t container_i = kmer_index*m_hash_words;
 		size_t j=0;
@@ -324,10 +324,10 @@ double MultipleKmersDataBases::calculate_kmer_score(
 			mask = _mm_load_ps((const float*)&m_kmers_table[container_i+hashmap_i]);
 			for(size_t i=0;i<128;i+=4) {
 				f = _mm_load_ps(&scores[j+i]);
-				zblended  = _mm_setzero_ps();					// Intialize zeros
-				zblended  = _mm_blendv_ps(zblended,f, mask);	// Choose according to bits
-				sums      = _mm_add_ps(sums, zblended);			// Sum chosen floats
-				mask = _mm_castsi128_ps(_mm_slli_epi32(_mm_castps_si128(mask), 1));
+				zblended  = _mm_setzero_ps();			// Intialize zeros
+				zblended  = _mm_blendv_ps(zblended,f, mask);	// Choose what to sum according to bits
+				sums      = _mm_add_ps(sums, zblended);		// Sum chosen floats
+				mask = _mm_castsi128_ps(_mm_slli_epi32(_mm_castps_si128(mask), 1)); //shift
 			}
 		}
 		_mm_store_ps(sumsf, sums);
