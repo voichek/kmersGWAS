@@ -26,8 +26,6 @@ library(methods)
 library(mvnpermute)
 library(matrixcalc)
 
-source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/genabel/polygenic.R')
-source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/genabel/polylik.R')
 source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/emma.R')
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -52,6 +50,7 @@ n_acc = nrow(phenotypes)
 # 2. Load kinship matrix
 K <- read.csv(fn_kinship, sep='\t',header =FALSE)
 K <- as.matrix(K[,1:(dim(K)[2]-1)])
+
 # Check matrix is positive semi-definite
 if(!is.positive.semi.definite(K)) {
   writeLines('Kinship matrix is not positive semi-definite')
@@ -62,6 +61,13 @@ if(!is.positive.semi.definite(K)) {
 null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = c(n_acc,1)),K)
 herit <- null$vg/(null$vg+null$ve)
 COV_MATRIX <- null$vg*K+null$ve*diag(dim(K)[1])
+CM_inv <- ginv(COV_MATRIX)
+
+# Calculate gamma
+gamma <- sum(CM_inv * 
+               as.matrix(read.csv("/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/ArticlePhenotypes/A_thaliana_associations/1001_Consortium_Cell_2016_PID_27293186_FT10/temp.r_gamma2", sep="\t", header=F)))
+write.table(x = gamma, file = f_log_grammar, quote=FALSE,sep="\t",row.names = FALSE,eol="\n")
+
 # Logging
 writeLines(c(paste('EMMA_n_permutation','=',n_permute), 
              paste('EMMA_n_accessions','=',n_acc), 
@@ -79,22 +85,9 @@ if(n_permute > 0) {
 
 # 5. Transform phenotypes with GRAMMAR-Gamma
 trans_phenotypes <- phenotypes
-grammar_run_info <- data.frame(phenotype = I(array(data="",dim=n_permute+1)),
-                               GRAMMAR_Gamma_Test = array(data="",dim=n_permute+1),
-                               GRAMMAR_Gamma_Beta = array(data="",dim=n_permute+1),
-                               GRAMMAR_Gamma_esth2 = array(data="",dim=n_permute+1))
-
 for(i in 2:(n_permute+2)) {
-  cur_pre_GRAMMAR_Gamma <- polygenic(phenotypes[,i], K,data.frame(c()), quiet = TRUE)
-  # Save GRAMMAR Gamma run information
-  grammar_run_info$phenotype[i-1] <- colnames(phenotypes)[i]
-  grammar_run_info$GRAMMAR_Gamma_Test[i-1] <- cur_pre_GRAMMAR_Gamma$grammarGamma$Test
-  grammar_run_info$GRAMMAR_Gamma_Beta[i-1] <- cur_pre_GRAMMAR_Gamma$grammarGamma$Beta
-  grammar_run_info$GRAMMAR_Gamma_esth2[i-1] <- cur_pre_GRAMMAR_Gamma$esth2
-  trans_phenotypes[,i] <- cur_pre_GRAMMAR_Gamma$pgresidualY
+  trans_phenotypes[,i] <- CM_inv %*% phenotypes[,i]
 }
-# Log GRAMMAR-Gamma run information
-write.table(x = grammar_run_info, file = f_log_grammar, quote=FALSE,sep="\t",row.names = FALSE,eol="\n")
 
 # 6. Output phenotype information
 # Output phenotypes before and after transformation (4+)5
