@@ -36,15 +36,17 @@ int main(int argc, char *argv[]) {
 	size_t minimum_kmer_count = atoi(argv[3]);
 
 	/* Build the hash table that will contain all the kmers counts */
-	KmerUint64Hash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
-	main_db.set_empty_key(NULL_KEY); // need to define "empty key" 
+	//KmerUint64Hash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
+	//main_db.set_empty_key(NULL_KEY); // need to define "empty key" 
+	KmerUint64SparseHash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
 	
 	/* Defining variables to use while going over the k-mers */
 	cerr << "k-mer length " << atoi(argv[4]) << endl;
 	CKmerUpTo31bpAPI kmer_obj(atoi(argv[4]));
 	vector<uint64_t> k_mers;
 	uint kmer_counter;
-	KmerUint64Hash::iterator it_hash;
+//	KmerUint64Hash::iterator it_hash;
+	KmerUint64SparseHash::iterator it_hash;
 
 	/* Going over all k-mers DBs */
 	for(size_t i=0; i<db_handles.size(); i++) {
@@ -67,7 +69,7 @@ int main(int argc, char *argv[]) {
 			} else { 
 				it_hash->second++;	}
 		}
-		cerr << bitset<64>(or_all) << endl;
+		cerr << "or mask: " << bitset<64>(or_all) << "\tsize of hash: " << main_db.size() <<  endl;
 	}
 	/* sort all k-mers */
 	k_mers.resize(0);

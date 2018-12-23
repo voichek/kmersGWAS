@@ -13,6 +13,7 @@
 #include <vector>
 
 #include <sparsehash/dense_hash_map>
+#include <sparsehash/sparse_hash_map>
 #include <sparsehash/dense_hash_set>
 
 #include "KMC/kmc_api/kmc_file.h"
@@ -46,6 +47,7 @@ struct Hash64 {
 // Define my hash tables / sets
 typedef google::dense_hash_set<uint64_t, Hash64> KmersSet; 
 typedef google::dense_hash_map<uint64_t, uint64_t, Hash64> KmerUint64Hash; 
+typedef google::sparse_hash_map<uint64_t, uint64_t, Hash64> KmerUint64SparseHash; 
 
 // Struct: Holds info on k-mers KMC DB
 struct KMCDataBaseHandle {
