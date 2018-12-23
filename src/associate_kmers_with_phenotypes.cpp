@@ -23,9 +23,11 @@
 #include "kmer_general.h"
 #include "kmers_multiple_databases.h"
 #include "best_associations_heap.h"
+#include "kmers_QQ_plot_statistics.h"
 
 #include <sys/sysinfo.h> // To monitor memory usage
 #include <algorithm>    // 
+#include <bitset>
 #include <iostream>
 #include <iterator>
 #include <utility> //std::pair
@@ -67,6 +69,9 @@ int main(int argc, char* argv[])
 			("k_mers_scores", "output the best k_mers scores in binary format")
 			("debug_option_batches_to_run",			po::value<uint64_t>()->default_value(NULL_KEY), 
 			 "Change to run only on part of the table")
+			("gamma",			po::value<double>(), 
+			 "The gamma factor from GRAMMAR-Gamma of the first phenotype, if given program will accumelate statistics for QQ plot")
+			("pattern_counter", "Count the number of unique presence/absence patterns")
 			;
 
 		/* parse the command line */
@@ -109,6 +114,7 @@ int main(int argc, char* argv[])
 		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
 		// Load DB paths
 		vector<KMCDataBaseHandle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
+		size_t extra_proccess(0); // extra proccess to work in parallel;
 		// Loading the phenotype (also include the list of needed accessions)
 		pair<vector<string>, vector<PhenotypeList>> phenotypes_info = load_phenotypes_file(
 				vm["phenotype_file"].as<string>());
@@ -119,7 +125,16 @@ int main(int argc, char* argv[])
 			phenotypes_info.second[i] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[i], 
 					DB_paths, true);
 		vector<PhenotypeList> p_list{phenotypes_info.second};
-
+		
+		double gamma(0);
+		if(vm.count("gamma"))
+			gamma = vm["gamma"].as<double>();
+		KmersQQPlotStatistics qq_stats(gamma,double(p_list[0].first.size()),0.1);
+		// Count unique presence absence patterns
+		bool count_pattern = false;
+		if(vm.count("pattern_counter")) {count_pattern = true; extra_proccess++;}
+		KmersSet pa_patterns_counter(1);
+		pa_patterns_counter.set_empty_key(NULL_KEY); // need to define empty value for google dense hash table
 		// Load all accessions data to a combine dataset
 		MultipleKmersDataBases multiDB(
 				vm["kmers_table"].as<string>(),
@@ -135,10 +150,12 @@ int main(int argc, char* argv[])
 
 		// Create heaps to save all best k-mers & scores
 		vector<BestAssociationsHeap> k_heap(phenotypes_n, BestAssociationsHeap(heap_size)); 
-		vector<std::future<void>> tp_results(k_heap.size());
+		vector<std::future<void>> tp_results(k_heap.size()+extra_proccess);
 		/****************************************************************************************************
 		 *	Load all k-mers and presence/absence information and correlate with phenotypes
 		 ***************************************************************************************************/
+
+
 		size_t min_count = ceil(double(p_list[0].first.size())*maf); // MAF of 5% - maybe should make this parameter external
 		if(min_count < mac)
 			min_count = mac;
@@ -149,25 +166,40 @@ int main(int argc, char* argv[])
 		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 		size_t batch_index = 0;
 		t0 = get_time();
-		while(multiDB.load_kmers(batch_size) && (batch_index < debug_option_batches_to_run)) { 
+		while(multiDB.load_kmers(batch_size, min_count) && (batch_index < debug_option_batches_to_run)) { 
 			t1 = get_time();
 			cerr << "Associating k-mers, part: " <<  batch_index << "\tt(min)=" << (double)(t1-t0)/(60.) << endl; 
 			cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 			t0 = get_time();
+			if(count_pattern)
+				tp_results[0] = tp.push([&multiDB,&pa_patterns_counter](int){
+						multiDB.update_presence_absence_pattern_counter(pa_patterns_counter);});
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
-				tp_results[j] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
-						multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
+				if((j==0) && (vm.count("gamma"))) {
+					tp_results[j+extra_proccess] = tp.push([&multiDB,&k_heap,&p_list,j,min_count, &qq_stats](int){
+							multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count, qq_stats);});
+
+				} else {
+					tp_results[j+extra_proccess] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
+							multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
+				}
 			}
-			for(size_t j=0; j<(phenotypes_n); j++) {
+			for(size_t j=0; j<(phenotypes_n + extra_proccess); j++) {
 				tp_results[j].get();
 				cerr << ".";
 				cerr.flush();
 			}
 			t1 = get_time();
 			cerr << "\tt(min)="<< (double)(t1-t0)/(60.) <<endl;
+			if(vm.count("gamma"))
+				cerr << "total insertions\t" << qq_stats.total_insertions() << endl;
+			if(count_pattern)
+				cerr << "total patterns\t" << pa_patterns_counter.size() << endl;
 			t0 = get_time();
 			batch_index++;
 		}
+		if(vm.count("gamma")) // output statistics
+			qq_stats.print_stats_to_file(fn_base +  ".qq_plot_stats");
 
 		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 		// close DBs, and release space ??
@@ -205,7 +237,7 @@ int main(int argc, char* argv[])
 		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 		// Reload k-mers to create plink bed/bim files
 		batch_index = 0;
-		while(multiDB_step2.load_kmers(batch_size) && (batch_index<debug_option_batches_to_run)) {
+		while(multiDB_step2.load_kmers(batch_size, min_count) && (batch_index<debug_option_batches_to_run)) {
 			cerr << "Saving k-mers, part: " <<  batch_index << endl; 
 			cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  

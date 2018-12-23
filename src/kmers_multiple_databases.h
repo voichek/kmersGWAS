@@ -23,6 +23,8 @@
 #include "kmer_general.h"
 #include "kmers_single_database.h"
 #include "best_associations_heap.h"
+#include "kmers_QQ_plot_statistics.h"
+
 /**
  * @class MultipleKmersDataBases
  * @brief class holds the information of presence/absence of k-mers
@@ -43,9 +45,9 @@ class MultipleKmersDataBases {
 		~MultipleKmersDataBases() {} // desctructor (Dtor of KmersSingleDataBase will close the open files)
 
 		// load k-mers from sorted files part of the kmer set
-		bool load_kmers(const uint64_t &batch_size, const KmersSet &set_kmers_to_use);
-		inline bool load_kmers(const uint64_t &batch_size)
-		{return load_kmers(batch_size, KmersSet());}
+		bool load_kmers(const uint64_t &batch_size, const KmersSet &set_kmers_to_use, const std::size_t &minor_allele_count = 0);
+		inline bool load_kmers(const uint64_t &batch_size, const std::size_t &minor_allele_count = 0)
+		{return load_kmers(batch_size, KmersSet(), minor_allele_count);}
 		inline bool load_kmers() {return load_kmers(NULL_KEY);} // load all k-mers in file
 		inline bool load_kmers(const KmersSet &set_kmers_to_use)
 		{return load_kmers(NULL_KEY, set_kmers_to_use);}// load all k-mers in file part of the input kmer set
@@ -61,13 +63,17 @@ class MultipleKmersDataBases {
 
 		void add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, std::vector<float> scores, 
 				const std::size_t &min_cnt) const;
+		
+		void add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, std::vector<float> scores, 
+				const std::size_t &min_cnt, KmersQQPlotStatistics &qq_plot_stats) const;
 
-
+		void update_presence_absence_pattern_counter(KmersSet &pa_pattern_counter) const;
 		inline const std::vector<std::string> get_dbs_names() 
 		{ return m_db_names_table; }	// return the list of db names in this class
 
 		void clear() {m_kmers.resize(0); m_kmers_table.resize(0); m_kmers_popcnt.resize(0);} // clear hashtable
-
+		
+		void update_gamma_precalculations(std::vector<std::vector<double> > &R, std::size_t &M);
 	private:                                
 		std::vector<std::string> m_db_names_db_file; 	// Names of DBs in the table file
 		std::vector<std::string> m_db_names_table;	// Names of DB to use (table will be squeezed)
@@ -89,16 +95,18 @@ class MultipleKmersDataBases {
 		/* Variables for mapping between table in file to saved table in class */
 		std::vector<std::size_t> m_map_word_index;	// Word index in table file
 		std::vector<std::size_t> m_map_bit_index;	// Bit index in the word
-
+		std::vector<uint64_t> m_map_mask;		// Bit mask for the bits of interest
 		/* General variables of class */
 		bool m_verbose; 				// if we want to output info a log the way
 
 		void create_map_from_all_DBs();
+		uint64_t calculate_unsqueezed_popcnt(const std::vector<uint64_t> &table_row) const;
 		double calculate_kmer_score(
 				const std::size_t kmer_index, 
 				const std::vector<float> &scores, 
 				const float score_sum,
 				const uint64_t min_in_group) const; 
+		float update_scores_and_sum(std::vector<float> &scores) const; 
 		void write_PA(const std::string &name, const size_t &kmer_i, BedBimFilesHandle &f) const;
 };
 

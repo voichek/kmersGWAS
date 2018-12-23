@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <cmath>
 #include <nmmintrin.h> //_mm_popcnt_u64 
 #include <smmintrin.h>  /* SSE 4.1 */
 #include <algorithm>
@@ -50,7 +51,7 @@ MultipleKmersDataBases::MultipleKmersDataBases(
 	m_accessions(db_to_use.size()),
 	m_kmer_table_file(merge_db_file, ios::binary | ios::ate), // ios::ate - put pointer in the end of file
 	m_hash_words_db_file((m_accessions_db_file+WLEN-1)/WLEN),
-   	// Due to the scoring procdure, the array should be a multiplication of 128 (as two words are proccessed
+	// Due to the scoring procdure, the array should be a multiplication of 128 (as two words are proccessed
 	// together in the dot product calculation)
 	m_hash_words(2*((m_accessions+(2*WLEN)-1)/(2*WLEN))),
 	m_kmers(),
@@ -63,6 +64,7 @@ MultipleKmersDataBases::MultipleKmersDataBases(
 	m_row_offset(0),
 	m_map_word_index(),
 	m_map_bit_index(),
+	m_map_mask(),
 	m_verbose(true)
 {
 	if(m_kmer_table_file.is_open()) {
@@ -98,14 +100,13 @@ MultipleKmersDataBases::MultipleKmersDataBases(
 }
 
 
-
 /**
  * @brief   Load k-mers from table to memory
  * The function will also squeeze to keep only k-mers which are part of the current DB set		
  * @param   size of memory batch and a set of k-mers to intersect with
  * @return return false if table file is allready finished 
  */
-bool MultipleKmersDataBases::load_kmers(const uint64_t &batch_size, const KmersSet &set_kmers_to_use) {
+bool MultipleKmersDataBases::load_kmers(const uint64_t &batch_size, const KmersSet &set_kmers_to_use, const size_t &mac) {
 	m_row_offset = m_kmer_loaded;
 	clear();
 	if(m_left_in_file == 0) {
@@ -113,36 +114,50 @@ bool MultipleKmersDataBases::load_kmers(const uint64_t &batch_size, const KmersS
 		m_kmer_table_file.close();
 	} else { // file not empty
 		vector<uint64_t> reading_buffer(m_hash_words_db_file+1);
-		for(size_t i=0; (i<batch_size) && (m_left_in_file>0); i++) {
+		while((m_kmers.size()<batch_size) && (m_left_in_file>0)) {
 			m_kmer_table_file.read(reinterpret_cast<char *>(reading_buffer.data()), 
 					sizeof(uint64_t)*reading_buffer.size());
 			//update counters
 			m_left_in_file -= (reading_buffer.size() * sizeof(uint64_t));
 			m_kmer_loaded++;
 			if((set_kmers_to_use.size() == 0) || (lookup_x(set_kmers_to_use,reading_buffer[0]))) {
-				m_kmers.push_back(reading_buffer[0]); // save k-mer representation
+				uint64_t kmer_popcnt_orig = calculate_unsqueezed_popcnt(reading_buffer);
+				if((kmer_popcnt_orig>=mac) && (kmer_popcnt_orig <= (m_accessions-mac))) {
+					m_kmers.push_back(reading_buffer[0]); // save k-mer representation
 
-				// add info to table in memory (= squeeze)
-				size_t table_offset = m_kmers_table.size();
-				m_kmers_table.resize(table_offset+m_hash_words, 0);
-				for(size_t col_index=0; col_index<m_accessions; col_index++) {
-					uint64_t new_bit = (reading_buffer[m_map_word_index[col_index]+1] 
-							>> m_map_bit_index[col_index]) & 1ull;
+					// add info to table in memory (= squeeze)
+					size_t table_offset = m_kmers_table.size();
+					m_kmers_table.resize(table_offset+m_hash_words, 0);
+					for(size_t col_index=0; col_index<m_accessions; col_index++) {
+						uint64_t new_bit = (reading_buffer[m_map_word_index[col_index]+1] 
+								>> m_map_bit_index[col_index]) & 1ull;
 
-					uint64_t hashmap_i = (col_index>>6);
-					uint64_t  bit_i = col_index&63;
-					m_kmers_table[table_offset + hashmap_i] |= (new_bit << bit_i);
+						uint64_t hashmap_i = (col_index>>6);
+						uint64_t  bit_i = col_index&63;
+						m_kmers_table[table_offset + hashmap_i] |= (new_bit << bit_i);
+					}
+					uint64_t kmer_popcnt = 0;
+					for(size_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++)
+						kmer_popcnt += _mm_popcnt_u64(m_kmers_table[table_offset+hashmap_i]);
+					if(kmer_popcnt != kmer_popcnt_orig) {
+						cerr << "error!!! should be equal popcnt!" << endl;
+						throw std::logic_error("error");
+					}
+					m_kmers_popcnt.push_back((double)kmer_popcnt);
 				}
-				uint64_t kmer_popcnt = 0;
-				for(size_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++)
-					kmer_popcnt += _mm_popcnt_u64(m_kmers_table[table_offset+hashmap_i]);
-				m_kmers_popcnt.push_back((double)kmer_popcnt);
 			}
 		}
 	}
 	return true;
 }
 
+
+uint64_t MultipleKmersDataBases::calculate_unsqueezed_popcnt(const vector<uint64_t> &table_row) const {
+	uint64_t res(0);
+	for(size_t i=1; i<table_row.size(); i++) // i=0 hold k-mer representation
+		res += _mm_popcnt_u64(table_row[i] & m_map_mask[i-1]);
+	return res;
+}
 
 ///
 /// @brief  output all the kmers and the presence absence info found in class
@@ -257,11 +272,7 @@ void MultipleKmersDataBases::add_kmers_to_heap(BestAssociationsHeap &kmers_and_s
 		const size_t &min_cnt) const {
 	// Due to efficency consideration we pass scores not by reference and change it to be a multiplication of
 	// word size (saving many not neccessery "if" in the scoring procedure)
-	scores.resize(m_hash_words*sizeof(uint64_t)*8, 0); 
-	permute_scores(scores);
-	float sum_scores(0);
-	for(size_t i=0; i<scores.size(); i++) 
-		sum_scores += scores[i];
+	float sum_scores = update_scores_and_sum(scores);
 	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++)
 		kmers_and_scores.add_association(m_kmers[kmer_index], 
 				calculate_kmer_score(kmer_index, scores, sum_scores,  min_cnt),
@@ -269,10 +280,30 @@ void MultipleKmersDataBases::add_kmers_to_heap(BestAssociationsHeap &kmers_and_s
 }
 
 
+// Also save statistics on the scores, for plotting a QQ plot
+void MultipleKmersDataBases::add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, vector<float> scores, 
+		const size_t &min_cnt, KmersQQPlotStatistics &qq_plot_stats) const {
+	float sum_scores = update_scores_and_sum(scores);
+	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
+		double current_kmer_stat = calculate_kmer_score(kmer_index, scores, sum_scores,  min_cnt);
+		kmers_and_scores.add_association(m_kmers[kmer_index], current_kmer_stat, m_row_offset + kmer_index);
+		qq_plot_stats.add_score(current_kmer_stat); // saving statistics on qq-plot
+	}
+}
+
+float MultipleKmersDataBases::update_scores_and_sum(vector<float> &scores) const {
+	scores.resize(m_hash_words*sizeof(uint64_t)*8, 0); 
+	permute_scores(scores);
+	float sum_scores(0);
+	for(size_t i=0; i<scores.size(); i++) 
+		sum_scores += scores[i];
+	return sum_scores;
+}
 // return the indices of DB names inserted in the class DBs
 void MultipleKmersDataBases::create_map_from_all_DBs() {
 	m_map_word_index.resize(0);
 	m_map_bit_index.resize(0);
+	m_map_mask.resize(m_hash_words_db_file, 0);
 	size_t index_file_table;
 	for(size_t index_mem_table=0; index_mem_table < m_accessions; index_mem_table++) {
 		index_file_table = find(m_db_names_db_file.begin(), m_db_names_db_file.end(), m_db_names_table[index_mem_table]) 
@@ -281,6 +312,7 @@ void MultipleKmersDataBases::create_map_from_all_DBs() {
 			throw std::logic_error("All accessions suppose to be in DB file: " + m_db_names_table[index_mem_table]);
 		m_map_word_index.push_back(index_file_table / WLEN);
 		m_map_bit_index.push_back(index_file_table % WLEN);
+		m_map_mask[m_map_word_index.back()] |= (1ull << m_map_bit_index.back());
 	}
 }
 
@@ -317,7 +349,7 @@ double MultipleKmersDataBases::calculate_kmer_score(
 		__m128   zblended 	ALIGNTO(16);
 		__m128   sums     	ALIGNTO(16) = _mm_setzero_ps();
 		float    sumsf[4] 	ALIGNTO(16);
-		
+
 		size_t container_i = kmer_index*m_hash_words;
 		size_t j=0;
 		for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i+=2, j+=128) { // two words at a time
@@ -339,5 +371,50 @@ double MultipleKmersDataBases::calculate_kmer_score(
 }
 #pragma GCC pop_options
 
+//Saving hash of presence/absence patterns
+void MultipleKmersDataBases::update_presence_absence_pattern_counter(KmersSet &pa_pattern_counter) const {
+	Hash64 hasher;
+	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
+		size_t container_i = kmer_index*m_hash_words;
+		uint64_t seed(0);
+		for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++) 
+			seed ^= hasher(m_kmers_table[container_i+hashmap_i]) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+		pa_pattern_counter.insert(seed);// update set	
+	}
+}
+		
 
+///
+/// @brief  To calculate the gamma correction factor parameters calculated on genotypes need to be used
+//			this function calculate this params.
+/// @param  R -	is the matrix of the accumelated calculations
+//			M -	Counter of the number of genotypes updated into R
+/// @return Just update the input parameters
+///
+void MultipleKmersDataBases::update_gamma_precalculations(vector<vector<double> > &R, size_t &M) {
+	double n  = (double)m_accessions;
+	vector<double> g(m_accessions, 0);
 
+	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
+		double Egm = m_kmers_popcnt[kmer_index] / n;
+		double denominator_factor = sqrt(1/(n*(Egm-Egm*Egm)));
+		
+		// Calculate g's
+		size_t container_i = kmer_index*m_hash_words;
+		for(size_t i=0; i<m_accessions; i++) {
+			uint64_t hashmap_i = (i>>6);
+			uint64_t bit_i = i&63;
+			g[i] = static_cast<double>((m_kmers_table[container_i+hashmap_i] >> bit_i) & 1ull)-Egm;
+			g[i] *= denominator_factor;
+		}
+
+		// update R
+		for(size_t i=0; i<m_accessions; i++) {
+			for(size_t j=0; j<=i; j++) {
+				R[i][j] += g[i]*g[j];
+			}
+		}
+		// update M
+		M++;
+	}
+}
