@@ -99,9 +99,7 @@ vector<vector<double> > emma_kinship(const string &base_bedbim) {
 			snp_hetro[si] = _dubit_is_hetro[dubit];
 			n_hetroz += _dubit_is_hetro[dubit];
 		}
-		//cout << "X\t" << n_var_allele << "\t" << n_total << "\t" << n_hetroz << "\t";
 		double maf = n_var_allele / n_total; 
-		//cout << maf << "\t";
 		for(size_t si=0; si<n_samples; ++si) {
 			if(snp_not_miss[si] == 0)
 				snp_calls[si] = maf;
@@ -117,11 +115,6 @@ vector<vector<double> > emma_kinship(const string &base_bedbim) {
 				snp_calls[si]=1;
 		}
 		update_K(K, snp_calls);
-		//if((i%500000) == 0) {
-		//	cout << "iter\t" << i << endl;
-		//	plot_kinship(K, 3);
-		//}
-
 	}
 	cerr << endl;
 	// close bed file
@@ -132,9 +125,6 @@ vector<vector<double> > emma_kinship(const string &base_bedbim) {
 			K[kc][kr] = K[kr][kc];	
 		}
 	}
-	//cout << "iter\tlast" << endl;
-	//plot_kinship(K, 3);
-
 	return K;
 }
 

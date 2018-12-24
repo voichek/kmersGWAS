@@ -129,7 +129,7 @@ int main(int argc, char* argv[])
 		double gamma(0);
 		if(vm.count("gamma"))
 			gamma = vm["gamma"].as<double>();
-		KmersQQPlotStatistics qq_stats(gamma,double(p_list[0].first.size()),0.1);
+		KmersQQPlotStatistics qq_stats(gamma,double(p_list[0].first.size()));
 		// Count unique presence absence patterns
 		bool count_pattern = false;
 		if(vm.count("pattern_counter")) {count_pattern = true; extra_proccess++;}
@@ -169,7 +169,6 @@ int main(int argc, char* argv[])
 		while(multiDB.load_kmers(batch_size, min_count) && (batch_index < debug_option_batches_to_run)) { 
 			t1 = get_time();
 			cerr << "Associating k-mers, part: " <<  batch_index << "\tt(min)=" << (double)(t1-t0)/(60.) << endl; 
-			cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 			t0 = get_time();
 			if(count_pattern)
 				tp_results[0] = tp.push([&multiDB,&pa_patterns_counter](int){
@@ -210,16 +209,11 @@ int main(int argc, char* argv[])
 		for(size_t j=0; j<(phenotypes_n); j++) { // For some reason this can be improved by parallelization
 			if (vm.count("k_mers_scores")) {
 				string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
-				cerr << "output: " << fn_kmers << "\t\t";
-				cerr << "Used RAM:\t" << get_mem_used_by_process() ;
 				k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
-				cerr << "\t" << get_mem_used_by_process();
 			}
 			// Create set of best k-mers
 			best_kmers.push_back(k_heap[j].get_kmers_for_output(kmer_length));
-			cerr << "\t" << get_mem_used_by_process();
 			k_heap[j].empty_heap(); // clear heap
-			cerr << "\t" << get_mem_used_by_process() << endl;
 		}
 		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
 
@@ -265,5 +259,3 @@ int main(int argc, char* argv[])
 	}
 	return 0;
 }
-
-

@@ -22,29 +22,24 @@
 
 #include <string>
 #include <vector>
-//#include <boost/math/distributions/chi_squared.hpp>
 
 class KmersQQPlotStatistics {
 	public:
 		KmersQQPlotStatistics(const double &gamma, 
-				const double &N_individuals, 
-				const double &resolution=0.5,
-				const double &max_statistics=2000);
+				const double &N_individuals);
+
 		KmersQQPlotStatistics() = delete;
 		KmersQQPlotStatistics(const KmersQQPlotStatistics &s) = delete;
 		KmersQQPlotStatistics& operator=(const KmersQQPlotStatistics) = delete;
 
 		void add_score(const double score);
-		void print_stats_to_file(const std::string &filename) const;
-		std::size_t total_insertions() const {return m_n_insertions;}
+		void print_stats_to_file(const std::string &filename, std::size_t max_points = 10000);
+		std::size_t total_insertions() const {return m_scores.size();}
 
 	private:
-//		chi_squared m_dist; // the distribution object
 		size_t m_n_insertions;
-		double m_resolution;
 		double m_factor;
-		double m_max_value;
-		std::vector<size_t> m_stats;
+		std::vector<float> m_scores;
 };	
 
 
