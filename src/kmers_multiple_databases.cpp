@@ -257,7 +257,17 @@ size_t MultipleKmersDataBases::output_plink_bed_file(BedBimFilesHandle &f, const
 	return index;
 }
 
-
+void MultipleKmersDataBases::output_plink_bed_file_unique_presence_absence_patterns(const string &filename, KmersSet &pa_patterns) const {
+	BedBimFilesHandle f_handle(filename);
+	for(size_t kmer_i=0; kmer_i<m_kmers.size(); kmer_i++) {
+		uint64_t seed = hash_presence_absence_pattern(kmer_i);
+		if(!lookup_x(pa_patterns, seed)) { // check if new pattern!
+			pa_patterns.insert(seed);
+			write_PA(bits2kmer31(m_kmers[kmer_i], m_kmer_len), kmer_i, f_handle);
+		}
+	}
+	f_handle.close();
+}
 
 
 /////
@@ -318,12 +328,10 @@ void MultipleKmersDataBases::create_map_from_all_DBs() {
 
 
 ///     Very efficent dot product between bit-array (uint64_t) to floats array
-//		using the specific archtecture of the proccessor (SSE4). 
-//		Taken from: https://stackoverflow.com/questions/16051365/fast-dot-product-of-a-bit-vector-and-a-floating-point-vector
-//		There is another version using the AVX2 archtecture which is 2 times faster.
-//		But part of our cluster in MPI can't run AVX2 so we will stick to generality for now.
-///
-
+///	using the specific archtecture of the proccessor (SSE4). 
+///	Taken from: https://stackoverflow.com/questions/16051365/fast-dot-product-of-a-bit-vector-and-a-floating-point-vector
+///	There is another version using the AVX2 archtecture which is 2 times faster.
+///	But part of our cluster in MPI can't run AVX2 so we will stick to generality for now.
 /* Defines */
 #define ALIGNTO(n) __attribute__((aligned(n)))
 
@@ -371,18 +379,22 @@ double MultipleKmersDataBases::calculate_kmer_score(
 }
 #pragma GCC pop_options
 
+// Calculate hash of presence absence pattern
+uint64_t MultipleKmersDataBases::hash_presence_absence_pattern(const size_t &kmer_index) const {
+	static Hash64 hasher;
+	size_t container_i = kmer_index*m_hash_words;
+	uint64_t seed(0);
+	for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++) 
+		seed ^= hasher(m_kmers_table[container_i+hashmap_i]) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+	return seed;
+}
+
 //Saving hash of presence/absence patterns
 void MultipleKmersDataBases::update_presence_absence_pattern_counter(KmersSet &pa_pattern_counter) const {
-	Hash64 hasher;
-	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
-		size_t container_i = kmer_index*m_hash_words;
-		uint64_t seed(0);
-		for(uint64_t hashmap_i=0; hashmap_i<m_hash_words; hashmap_i++) 
-			seed ^= hasher(m_kmers_table[container_i+hashmap_i]) + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
-		pa_pattern_counter.insert(seed);// update set	
-	}
+	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) 
+		pa_pattern_counter.insert(hash_presence_absence_pattern(kmer_index));// update set	
 }
-		
+
 
 ///
 /// @brief  To calculate the gamma correction factor parameters calculated on genotypes need to be used
@@ -391,14 +403,14 @@ void MultipleKmersDataBases::update_presence_absence_pattern_counter(KmersSet &p
 //			M -	Counter of the number of genotypes updated into R
 /// @return Just update the input parameters
 ///
-void MultipleKmersDataBases::update_gamma_precalculations(vector<vector<double> > &R, size_t &M) {
+void MultipleKmersDataBases::update_gamma_precalculations(vector<vector<double> > &R, size_t &M) const {
 	double n  = (double)m_accessions;
 	vector<double> g(m_accessions, 0);
 
 	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
 		double Egm = m_kmers_popcnt[kmer_index] / n;
 		double denominator_factor = sqrt(1/(n*(Egm-Egm*Egm)));
-		
+
 		// Calculate g's
 		size_t container_i = kmer_index*m_hash_words;
 		for(size_t i=0; i<m_accessions; i++) {
@@ -416,5 +428,27 @@ void MultipleKmersDataBases::update_gamma_precalculations(vector<vector<double> 
 		}
 		// update M
 		M++;
+	}
+}
+
+void MultipleKmersDataBases::update_emma_kinshhip_calculation(std::vector<std::vector<uint64_t> > &K, 
+		uint64_t &counter) const {
+	vector<uint64_t> g(m_accessions, 0);
+	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
+		// Calculate g's
+		size_t container_i = kmer_index*m_hash_words;
+		for(size_t i=0; i<m_accessions; i++) {
+			uint64_t hashmap_i = (i>>6);
+			uint64_t bit_i = i&63;
+			g[i] = (m_kmers_table[container_i+hashmap_i] >> bit_i) & 1ull;
+		}
+
+		// update R
+		for(size_t i=0; i<m_accessions; i++) 
+			for(size_t j=0; j<i; j++) 
+				K[i][j] += (1ull^g[i]^g[j]);
+
+		// update M
+		counter++;
 	}
 }

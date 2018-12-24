@@ -2,12 +2,10 @@
 ///      @file  kmer_multipleDB.h
 ///     @brief  Decleration of kmer_multiDB class
 ///
-
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
 ///  @internal
 ///    Created  07/19/18
-///   Revision  $Id: doxygen.cpp.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
 ///   Compiler  gcc/g++
 ///    Company  Max Planck Institute for Developmental Biology Dep 6
 ///  Copyright  Copyright (c) 2018, Yoav Voichek
@@ -60,6 +58,7 @@ class MultipleKmersDataBases {
 		inline void output_plink_bed_file(BedBimFilesHandle &f) const 
 		{output_plink_bed_file(f, KmersSet());}
 		size_t output_plink_bed_file(BedBimFilesHandle &f, const std::vector<AssociationOutputInfo> &kmer_list, size_t index) const;
+		void output_plink_bed_file_unique_presence_absence_patterns(const std::string &filename, KmersSet &pa_patterns) const;
 
 		void add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, std::vector<float> scores, 
 				const std::size_t &min_cnt) const;
@@ -73,7 +72,9 @@ class MultipleKmersDataBases {
 
 		void clear() {m_kmers.resize(0); m_kmers_table.resize(0); m_kmers_popcnt.resize(0);} // clear hashtable
 		
-		void update_gamma_precalculations(std::vector<std::vector<double> > &R, std::size_t &M);
+		void update_gamma_precalculations(std::vector<std::vector<double> > &R, std::size_t &M) const;
+		void update_emma_kinshhip_calculation(std::vector<std::vector<uint64_t> > &K, uint64_t &count) const;
+
 	private:                                
 		std::vector<std::string> m_db_names_db_file; 	// Names of DBs in the table file
 		std::vector<std::string> m_db_names_table;	// Names of DB to use (table will be squeezed)
@@ -108,6 +109,7 @@ class MultipleKmersDataBases {
 				const uint64_t min_in_group) const; 
 		float update_scores_and_sum(std::vector<float> &scores) const; 
 		void write_PA(const std::string &name, const size_t &kmer_i, BedBimFilesHandle &f) const;
+		uint64_t hash_presence_absence_pattern(const size_t &kmer_index) const; 
 };
 
 #endif
