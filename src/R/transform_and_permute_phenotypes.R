@@ -38,7 +38,7 @@ n_permute <- as.numeric(args[3])
 fn_out_phenotypes <- args[4]
 fn_out_trans_phenotypes <- args[5]
 f_log <- file(args[6])
-# f_log_grammar <- paste(args[5],".log",sep="")
+fn_inv_cov_matrix <- paste(args[5],".inv_cov_matrix",sep="")
 
 
 # 1. Load phenotype file
@@ -62,11 +62,11 @@ null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = 
 herit <- null$vg/(null$vg+null$ve)
 COV_MATRIX <- null$vg*K+null$ve*diag(dim(K)[1])
 CM_inv <- ginv(COV_MATRIX)
+write.table(x= CM_inv, file = fn_inv_cov_matrix, quote=F, sep="\t", row.names=F, col.names = F, eol="\n")
 
 # Calculate gamma
 # gamma <- sum(CM_inv * 
 #                as.matrix(read.csv("/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/ArticlePhenotypes/A_thaliana_associations/1001_Consortium_Cell_2016_PID_27293186_FT10/temp.r_gamma2", sep="\t", header=F)))
-# write.table(x = gamma, file = f_log_grammar, quote=FALSE,sep="\t",row.names = FALSE,eol="\n")
 
 # Logging
 writeLines(c(paste('EMMA_n_permutation','=',n_permute), 

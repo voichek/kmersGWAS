@@ -30,6 +30,7 @@
 #include <algorithm>
 #include <bitset>
 #include <numeric>
+#include <sstream>
 
 using namespace std;
 
@@ -451,4 +452,63 @@ void MultipleKmersDataBases::update_emma_kinshhip_calculation(std::vector<std::v
 		// update M
 		counter++;
 	}
+}
+
+
+vector<vector<double> > read_matrix_tab_seperated(const string &filename) {
+	ifstream fin(filename);
+	vector<string>  line_tokens;
+	string          line, cell;
+
+	size_t line_n(0);
+	size_t N(0); //matrix row/column dimension
+	
+	vector<vector<double> > M;
+	while(getline(fin, line)) { // Read the file line by line
+		stringstream          lineStream(line);
+		while(std::getline(lineStream, cell, '\t'))
+			line_tokens.push_back(cell);
+		if(line_n == 0)	
+			N = line_tokens.size();
+		if(line_tokens.size() != N) 
+				throw std::logic_error("File should have the same number of fields in each row - " + filename);
+		M.resize(line_n+1);
+		for(size_t i=0; i<N; i++) M[line_n].push_back(stof(line_tokens[i])); 
+		line_n++;
+		line_tokens.resize(0);
+	}
+	if(line_n != N)
+		throw std::logic_error("File should have the same number of raws & columns - " + filename);
+	return M;
+}
+
+double calc_gamma(const string &fn_inv_cov_mat, MultipleKmersDataBases &multiDB, 
+		const size_t &min_count,	const size_t max_variants) {
+	size_t M(0);
+	vector<vector<double> > inv_cov_mat = read_matrix_tab_seperated(fn_inv_cov_mat);
+	size_t n_acc = inv_cov_mat.size();
+	vector<vector<double> > R(n_acc, vector<double>(n_acc, 0));
+
+	size_t batch_size = 10000; // constant for now
+	size_t max_batch = (max_variants+batch_size) / batch_size;
+	size_t batch_index = 0;
+	while(multiDB.load_kmers(batch_size, min_count) && (batch_index < max_batch)) {
+		multiDB.update_gamma_precalculations(R, M);
+		batch_index++;
+	}
+
+	for(size_t i=0; i<n_acc; i++) {
+		for(size_t j=0; j<=i; j++) {
+			R[i][j] = R[i][j]/static_cast<double>(M);
+			if(j<i)
+				R[j][i] = R[i][j];
+		}
+	}
+
+	double gamma = 0;
+	for(size_t i=0; i<n_acc; i++)
+		for(size_t j=0; j<n_acc; j++)
+			gamma += inv_cov_mat[i][j] * R[i][j];
+
+	return gamma;
 }

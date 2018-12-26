@@ -112,5 +112,8 @@ class MultipleKmersDataBases {
 		uint64_t hash_presence_absence_pattern(const size_t &kmer_index) const; 
 };
 
+std::vector<std::vector<double> > read_matrix_tab_seperated(const std::string &filename);
+double calc_gamma(const std::string &fn_inv_cov_mat, MultipleKmersDataBases &multiDB, const std::size_t &min_count,
+		const std::size_t max_variants = 1000000);
 #endif
 

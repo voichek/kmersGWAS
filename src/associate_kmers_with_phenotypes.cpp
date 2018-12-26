@@ -10,7 +10,6 @@
 ///
 ///  @internal
 ///    Created  07/17/18
-///   Revision  $Id: doxygen.cpp.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
 ///   Compiler  gcc/g++
 ///    Company  Max Planck Institute for Developmental Biology Dep 6
 ///  Copyright  Copyright (c) 2018, Yoav Voichek
@@ -26,14 +25,10 @@
 #include "kmers_QQ_plot_statistics.h"
 
 #include <sys/sysinfo.h> // To monitor memory usage
-#include <algorithm>    // 
-#include <bitset>
 #include <iostream>
-#include <iterator>
 #include <utility> //std::pair
 
-#include <boost/program_options.hpp>
-
+#include <boost/program_options.hpp> // For getting parameters from user
 #include "CTPL/ctpl_stl.h" //thread pool library
 
 using namespace std;
@@ -41,8 +36,8 @@ namespace po = boost::program_options;
 
 int main(int argc, char* argv[])
 {
-	/*******************************************************************************************************/
 	/* Loading the user defined parameters */
+
 	try {
 		/* Define the input params */
 		po::options_description desc("Allowed options");
@@ -72,6 +67,8 @@ int main(int argc, char* argv[])
 			("gamma",			po::value<double>(), 
 			 "The gamma factor from GRAMMAR-Gamma of the first phenotype, if given program will accumelate statistics for QQ plot")
 			("pattern_counter", "Count the number of unique presence/absence patterns")
+			("inv_covariance_matrix",			po::value<string>(),
+			 "To calculate Gamma we need to use the covariance matrix (if given the program will calculate Gamma)")
 			;
 
 		/* parse the command line */
@@ -84,40 +81,35 @@ int main(int argc, char* argv[])
 			cout << desc << "\n";
 			return 0;
 		}
-
-		if (vm.count("phenotype_file")) {
-			cerr << "phenotype file: " 
-				<< vm["phenotype_file"].as<string>() << "\n";
-		} else {
-			cout << "Need to specify the phenotype file\n";
-			return 1;
-		}
-
-		if (vm.count("base_name")) {
-			cerr << "base name: " 
-				<< vm["base_name"].as<string>() << "\n";
-		} else {
-			cout << "Need to specify the base name\n";
-			return 1;
-		}
+		// Example of parameter checking
+		//		if (vm.count("phenotype_file")) {
+		//			cerr << "phenotype file: " 
+		//				<< vm["phenotype_file"].as<string>() << "\n";
+		//		} else {
+		//			cout << "Need to specify the phenotype file\n";
+		//			return 1;
+		//		}
+		//
 		/***************************************************************************************************/
 		// Base name for all save files
 		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
 		size_t heap_size = vm["best"].as<size_t>();	// # best k-mers to report
-		size_t batch_size = vm["batch_size"].as<size_t>(); // Load each time ~1/n_steps of k-mers
-		ctpl::thread_pool tp(vm["parallel"].as<size_t>());
+		size_t batch_size = vm["batch_size"].as<size_t>(); // part of kmers-table to import in each step
+		ctpl::thread_pool tp(vm["parallel"].as<size_t>()); // How many threads can we use
 
-		uint32_t kmer_length = vm["kmer_len"].as<uint32_t>();
-		double maf = vm["maf"].as<double>();
-		size_t mac = vm["mac"].as<size_t>();
+		uint32_t kmer_length = vm["kmer_len"].as<uint32_t>(); // length of k-mers in table
+		double maf = vm["maf"].as<double>(); // Minor allele frequency
+		size_t mac = vm["mac"].as<size_t>(); // Minor allele count
 
+		// This option is for debug perpuses (run only on part of the data)
 		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
-		// Load DB paths
+
+		// Load list of accessions in the table (in the same order)
 		vector<KMCDataBaseHandle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
-		size_t extra_proccess(0); // extra proccess to work in parallel;
+
 		// Loading the phenotype (also include the list of needed accessions)
 		pair<vector<string>, vector<PhenotypeList>> phenotypes_info = load_phenotypes_file(
-				vm["phenotype_file"].as<string>());
+				vm["phenotype_file"].as<string>());	
 		size_t phenotypes_n = phenotypes_info.first.size();
 
 		// Intersect phenotypes only to the present DBs (can also check if all must be present)
@@ -125,85 +117,107 @@ int main(int argc, char* argv[])
 			phenotypes_info.second[i] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[i], 
 					DB_paths, true);
 		vector<PhenotypeList> p_list{phenotypes_info.second};
-		
-		double gamma(0);
-		if(vm.count("gamma"))
-			gamma = vm["gamma"].as<double>();
-		KmersQQPlotStatistics qq_stats(gamma,double(p_list[0].first.size()));
-		// Count unique presence absence patterns
-		bool count_pattern = false;
-		if(vm.count("pattern_counter")) {count_pattern = true; extra_proccess++;}
-		KmersSet pa_patterns_counter(1);
-		pa_patterns_counter.set_empty_key(NULL_KEY); // need to define empty value for google dense hash table
-		// Load all accessions data to a combine dataset
-		MultipleKmersDataBases multiDB(
-				vm["kmers_table"].as<string>(),
-				get_DBs_names(DB_paths),
-				p_list[0].first, 
-				kmer_length);
-
-		MultipleKmersDataBases multiDB_step2(
-				vm["kmers_table"].as<string>(),
-				get_DBs_names(DB_paths),
-				p_list[0].first, 
-				kmer_length);
 
 		// Create heaps to save all best k-mers & scores
 		vector<BestAssociationsHeap> k_heap(phenotypes_n, BestAssociationsHeap(heap_size)); 
-		vector<std::future<void>> tp_results(k_heap.size()+extra_proccess);
-		/****************************************************************************************************
-		 *	Load all k-mers and presence/absence information and correlate with phenotypes
-		 ***************************************************************************************************/
 
-
-		size_t min_count = ceil(double(p_list[0].first.size())*maf); // MAF of 5% - maybe should make this parameter external
+		// Convert the MAF & MAC to be one parameter => corrected MAC
+		size_t n_accessions = p_list[0].first.size();
+		size_t min_count = ceil(static_cast<double>(n_accessions)*maf); 
 		if(min_count < mac)
 			min_count = mac;
+		cerr << "Effective minor allele count:\t" << min_count << endl;
 
-		double t0,t1;
-		/* Compute time taken */
-		cerr << "Min count to associate = " << min_count << endl;
-		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
-		size_t batch_index = 0;
+		MultipleKmersDataBases kmers_table_for_associations(
+				vm["kmers_table"].as<string>(),	get_DBs_names(DB_paths), p_list[0].first, kmer_length);
+		MultipleKmersDataBases kmers_table_for_output(
+				vm["kmers_table"].as<string>(),	get_DBs_names(DB_paths), p_list[0].first, kmer_length);
+		MultipleKmersDataBases kmers_table_for_gamma_calculation(
+				vm["kmers_table"].as<string>(),	get_DBs_names(DB_paths), p_list[0].first, kmer_length);
+
+		vector<std::future<void> > tp_results(phenotypes_n);
+		/***************************************************************************************
+		 * Statistics to be collected during the association - here we define what to collect  */
+		// the Gamma normalization factor of the GRAMMAR-Gamma method is needed to calculate p-value
+		// from the statistics (needed here for the qq-plot). Gamma can be:
+		// 1. Given by the user
+		// 2. Calculated by the program (if the neccesary information is given)
+		// 3. No QQ-plot calculation will be done
+		double gamma;
+		bool calculate_gamma = false;
+		bool run_with_gamma = false;
+		std::future<double> gamma_calc_fut;
+
+		if(vm.count("gamma")) {// 1. Gamma is given by the user
+			gamma = vm["gamma"].as<double>();
+			run_with_gamma = true;
+		}
+		if(vm.count("inv_covariance_matrix")) {
+			if(vm.count("gamma")) {
+				cerr << "Can't input both a gamma value and a covariance matrix" << endl;
+				return 1;
+			}
+			run_with_gamma=true;
+			calculate_gamma=true;
+			// Calculate Gamma on a part of the data (will run this in the background)
+			string fn_inv_cov_mat = vm["inv_covariance_matrix"].as<string>(); // defined only in this scoop!!! 
+			// (if pass in parallel by reference will be overwritten and won't exist in the other thread)
+			gamma_calc_fut = tp.push([fn_inv_cov_mat, &kmers_table_for_gamma_calculation, min_count](double){
+					return calc_gamma(fn_inv_cov_mat, kmers_table_for_gamma_calculation, min_count);});
+
+		}
+
+		// Create the qq_stats container (the gamma can be changed in later stages)
+		KmersQQPlotStatistics qq_stats;
+		// Count unique presence absence patterns
+		std::future<void> pattern_counter_fut;
+		KmersSet pa_patterns_counter(1);
+		pa_patterns_counter.set_empty_key(NULL_KEY); // need to define empty value for google dense hash table
+
+		/****************************************************************************************************
+		 *	Associate presence/absence information with phenotypes
+		 ***************************************************************************************************/
+		double t0,t1; // for timing measurments
 		t0 = get_time();
-		while(multiDB.load_kmers(batch_size, min_count) && (batch_index < debug_option_batches_to_run)) { 
-			t1 = get_time();
-			cerr << "Associating k-mers, part: " <<  batch_index << "\tt(min)=" << (double)(t1-t0)/(60.) << endl; 
-			t0 = get_time();
-			if(count_pattern)
-				tp_results[0] = tp.push([&multiDB,&pa_patterns_counter](int){
-						multiDB.update_presence_absence_pattern_counter(pa_patterns_counter);});
-			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
-				if((j==0) && (vm.count("gamma"))) {
-					tp_results[j+extra_proccess] = tp.push([&multiDB,&k_heap,&p_list,j,min_count, &qq_stats](int){
-							multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count, qq_stats);});
+		size_t batch_index = 0;
+		while(kmers_table_for_associations.load_kmers(batch_size, min_count) 
+				&& (batch_index < debug_option_batches_to_run)) {
 
+			// status information
+			t1 = get_time();cerr << "Load [" <<  batch_index << "]\t(" << (double)(t1-t0)/(60.) << 
+				"min," << get_mem_used_by_process() << "MB)" << endl; t0 = get_time();
+
+			if(vm.count("pattern_counter")) // If count patterns is on
+				pattern_counter_fut = tp.push([&kmers_table_for_associations,&pa_patterns_counter](int){
+						kmers_table_for_associations.update_presence_absence_pattern_counter(pa_patterns_counter);});
+
+			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
+				if((j==0) && (run_with_gamma)) {
+					tp_results[j] = tp.push([&kmers_table_for_associations,&k_heap,&p_list,j,min_count, &qq_stats](int){
+							kmers_table_for_associations.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count, qq_stats);});
 				} else {
-					tp_results[j+extra_proccess] = tp.push([&multiDB,&k_heap,&p_list,j,min_count](int){
-							multiDB.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
+					tp_results[j] = tp.push([&kmers_table_for_associations,&k_heap,&p_list,j,min_count](int){
+							kmers_table_for_associations.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
 				}
 			}
-			for(size_t j=0; j<(phenotypes_n + extra_proccess); j++) {
+			for(size_t j=0; j<(phenotypes_n); j++) {
 				tp_results[j].get();
-				cerr << ".";
-				cerr.flush();
+				cerr << "."; cerr.flush();
 			}
-			t1 = get_time();
-			cerr << "\tt(min)="<< (double)(t1-t0)/(60.) <<endl;
-			if(vm.count("gamma"))
-				cerr << "total insertions\t" << qq_stats.total_insertions() << endl;
-			if(count_pattern)
-				cerr << "total patterns\t" << pa_patterns_counter.size() << endl;
-			t0 = get_time();
+			if(vm.count("pattern_counter"))
+				pattern_counter_fut.get();
+
+			t1 = get_time();cerr << "Associations [" <<  batch_index << "]\t(" << (double)(t1-t0)/(60.) << 
+				"min," << get_mem_used_by_process() << "MB)" << endl; t0 = get_time();
 			batch_index++;
 		}
-		if(vm.count("gamma")) // output statistics
-			qq_stats.print_stats_to_file(fn_base +  ".qq_plot_stats");
-
-		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
-		// close DBs, and release space ??
+		if(vm.count("gamma"))
+			cerr << "Total insertions\t" << qq_stats.total_insertions() << endl;
+		if(vm.count("pattern_counter"))
+			cerr << "Total patterns\t" << pa_patterns_counter.size() << endl;
+		
 		/****************************************************************************************************
-		 *	save best k-mers to files and create set of k-mers from heaps (and clear heaps)	
+		 *	save best k-mers to files and create list of k-mers from heaps (and clear heaps)	
 		 ***************************************************************************************************/
 		vector<kmers_output_list> best_kmers;	
 		for(size_t j=0; j<(phenotypes_n); j++) { // For some reason this can be improved by parallelization
@@ -211,11 +225,12 @@ int main(int argc, char* argv[])
 				string fn_kmers = fn_base + "." + std::to_string(j) + ".best_kmers";
 				k_heap[j].output_to_file_with_scores(fn_kmers + ".scores");
 			}
+
 			// Create set of best k-mers
 			best_kmers.push_back(k_heap[j].get_kmers_for_output(kmer_length));
 			k_heap[j].empty_heap(); // clear heap
 		}
-		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
+		cerr << "RAM in use:\t" << get_mem_used_by_process() << endl;
 
 		/****************************************************************************************************
 		 *	Reload all k-mers and out to plink files only the best k-mers found in the previous stage
@@ -227,27 +242,37 @@ int main(int argc, char* argv[])
 			write_fam_file(p_list[j], fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] 
 					+ ".fam");
 		}
-		cerr << "Re-loading k-mers" << endl;
-		cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
+		
 		// Reload k-mers to create plink bed/bim files
 		batch_index = 0;
-		while(multiDB_step2.load_kmers(batch_size, min_count) && (batch_index<debug_option_batches_to_run)) {
-			cerr << "Saving k-mers, part: " <<  batch_index << endl; 
-			cerr << "Used RAM:\t" << get_mem_used_by_process() << endl;
+		while(kmers_table_for_output.load_kmers(batch_size, min_count) 
+				&& (batch_index<debug_option_batches_to_run)) {
+			cerr << "Save [" <<  batch_index << "]\t(" << get_mem_used_by_process() << "MB)" << endl;
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
 				best_kmers[j].next_index = 
-					multiDB_step2.output_plink_bed_file(plink_output[j], 
-							best_kmers[j].list, best_kmers[j].next_index); // parallel ?
-				cerr << ".";
-				cerr.flush();	
+					kmers_table_for_output.output_plink_bed_file(plink_output[j], 
+							best_kmers[j].list, best_kmers[j].next_index); 
+				cerr << "."; cerr.flush();	
 			}
 			cerr << endl;
 			batch_index++;
 		}
-		// close DBs, release space ??
+
 		// close all bed & bim plink files & (specific fam?)
 		for(size_t j=0; j<plink_output.size(); j++)
 			plink_output[j].close();
+		
+		if(run_with_gamma) {
+			cerr << "Write to file the QQ plot information" << endl;
+			if(calculate_gamma) {
+				cerr << "Wait for Gamma calculation" << endl;
+				gamma = gamma_calc_fut.get(); //Calculating Gamma in the background since the program started
+			}
+			ofstream fout(fn_base + ".gamma");
+			fout << gamma << endl;
+			fout.close();
+			qq_stats.print_stats_to_file(fn_base +  ".qq_plot_stats", gamma, n_accessions);
+		}
 
 	}
 	catch(exception& e) {

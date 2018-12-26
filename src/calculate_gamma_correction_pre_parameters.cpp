@@ -13,6 +13,7 @@
 using namespace std;
 namespace po = boost::program_options;
 
+
 int main(int argc, char* argv[])
 {
 	/*******************************************************************************************************/
@@ -68,7 +69,7 @@ int main(int argc, char* argv[])
 		phenotypes_info.second[0] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[0],
 				DB_paths, true);
 		vector<PhenotypeList> p_list{phenotypes_info.second};
-		
+
 		// Load all accessions data to a combine dataset
 		MultipleKmersDataBases multiDB(
 				vm["kmers_table"].as<string>(),
@@ -85,7 +86,7 @@ int main(int argc, char* argv[])
 		/* Compute time taken */
 		cerr << "Min count to associate = " << min_count << endl;
 		size_t batch_index = 0;
-		
+
 		size_t M(0);
 		vector<vector<double> > R(n_acc, vector<double>(n_acc, 0));
 
@@ -94,7 +95,7 @@ int main(int argc, char* argv[])
 			t1 = get_time();
 			cerr << "calc pre-gamma params part: " <<  batch_index << "\tt(min)=" << (double)(t1-t0)/(60.) << endl; 
 			t0 = get_time();
-		
+
 			multiDB.update_gamma_precalculations(R, M);
 			t1 = get_time();
 			cerr << "\tt(min)="<< (double)(t1-t0)/(60.) << "\tM="<<M <<endl;
