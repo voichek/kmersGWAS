@@ -190,7 +190,7 @@ vector<string> MultipleSNPsDataBases::get_names_from_fam_file(const string &fam_
 		stringstream          lineStream(line);
 		while(std::getline(lineStream, cell, ' '))
 			line_tokens.push_back(cell);
-		sample_names.push_back(line_tokens[1]); // second column
+		sample_names.push_back(line_tokens[0]); // second column
 		line_tokens.resize(0);
 	}
 	return sample_names; 
