@@ -1,7 +1,8 @@
 ########################################################################################################
 # General parameters of compilations 
 CXX=g++
-CXX_FLAGS = -std=c++14 -Wall -O3 -I /ebio/abt6/yvoichek/smallproj/prefix/include/ -I ./include/ -pthread -msse4.2  -march=native 
+CXX_FLAGS = -std=c++14 -Wall -O3 -I /ebio/abt6/yvoichek/smallproj/prefix/include/ -I ./include/ -pthread -msse4.2 
+#-march=native 
 #-g -mno-tbm
 LDFLAGS :=  -L/ebio/abt6/yvoichek/smallproj/prefix/lib -lstdc++ -lboost_program_options
 ########################################################################################################
