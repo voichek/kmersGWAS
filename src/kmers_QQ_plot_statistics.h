@@ -33,11 +33,17 @@ class KmersQQPlotStatistics {
 		void add_score(const double &score);
 		void print_stats_to_file(const std::string &filename, const double &gamma,
 			   const std::size_t &n_individuals, std::size_t max_points = 10000);
+		void print_stats_to_file_norm_unique_tests(const std::string &filename, const double &gamma,
+				const std::size_t &n_individuals, const std::size_t actual_tests,
+			   	std::size_t max_points = 10000);
+
 		std::size_t total_insertions() const {return m_scores.size();}
 
 	private:
 		size_t m_n_insertions;
 		std::vector<float> m_scores;
+
+		double norm_uniform(const std::size_t &i, const std::size_t &N, const size_t &K) const;
 };	
 
 

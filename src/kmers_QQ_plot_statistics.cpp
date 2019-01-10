@@ -24,14 +24,17 @@ void KmersQQPlotStatistics::add_score(const double &score) {
 /// @brief  print the statistics needed to paint the QQ-plot
 /// @param  1. filename for output
 //			2. max_points - number of sampled points from the list
+//			3. actual_tests - as presence absence patterns might repeat, the actual space of test might be smaller
+//
 /// @return (change the order of the scores)
 ///
 // As this class is likley to contain 10^7-10^9 data points, we won't be able to plot all of them in a QQ-plot
 // Thus we will plot only a subset of the points (defined in max_points) to reach a density resonable for 
 // painting on a single plot
 //
-void KmersQQPlotStatistics::print_stats_to_file(const std::string &filename, const double &gamma,
-		const size_t &n_individuals, size_t max_points) {
+
+void KmersQQPlotStatistics::print_stats_to_file_norm_unique_tests(const std::string &filename, const double &gamma,
+		const size_t &n_individuals, const size_t actual_tests, size_t max_points) {
 
 	float factor = 1 / (static_cast<float>(gamma) * static_cast<float>(n_individuals)); // Factor from real statistics 
 
@@ -55,7 +58,7 @@ void KmersQQPlotStatistics::print_stats_to_file(const std::string &filename, con
 	while((counter < max_points) && (index>0)) {
 		float cur_score = m_scores[index] * factor; // as factor > 0, it is only important in the reporting
 		f_out << cur_score << "\t" << -log10((1-cdf(dist, cur_score))) << "\t" << 
-			-log10(static_cast<double>(m_scores.size() - index)/static_cast<double>(m_scores.size()+1)) << endl;
+			-log10(norm_uniform(m_scores.size() - index, m_scores.size(), actual_tests)) << endl;
 
 		if((2*counter)<max_points) {
 			step = 1; 
@@ -65,4 +68,16 @@ void KmersQQPlotStatistics::print_stats_to_file(const std::string &filename, con
 		counter++;
 		index-=step;
 	}
+}
+
+// i - index / N - number of tests / K - unique number of tests (space size)
+double KmersQQPlotStatistics::norm_uniform(const size_t &i, const size_t &N, const size_t &K) const {
+	double i_norm = static_cast<double>((i * K+N-1) / N);
+	return i_norm/static_cast<double>(K+1);
+}
+
+void KmersQQPlotStatistics::print_stats_to_file(const std::string &filename, const double &gamma,
+		const size_t &n_individuals, size_t max_points) {
+	print_stats_to_file_norm_unique_tests(filename, gamma, n_individuals,  m_scores.size(),
+			max_points);
 }
