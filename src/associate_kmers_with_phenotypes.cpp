@@ -81,15 +81,6 @@ int main(int argc, char* argv[])
 			cout << desc << "\n";
 			return 0;
 		}
-		// Example of parameter checking
-		//		if (vm.count("phenotype_file")) {
-		//			cerr << "phenotype file: " 
-		//				<< vm["phenotype_file"].as<string>() << "\n";
-		//		} else {
-		//			cout << "Need to specify the phenotype file\n";
-		//			return 1;
-		//		}
-		//
 		/***************************************************************************************************/
 		// Base name for all save files
 		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
@@ -262,6 +253,11 @@ int main(int argc, char* argv[])
 		for(size_t j=0; j<plink_output.size(); j++)
 			plink_output[j].close();
 		
+		if(vm.count("pattern_counter")) {
+			ofstream fout(fn_base + ".pattern_counter");
+			fout <<   pa_patterns_counter.size() << endl; 
+			fout.close();
+		}
 		if(run_with_gamma) {
 			cerr << "Write to file the QQ plot information" << endl;
 			if(calculate_gamma) {
@@ -271,8 +267,18 @@ int main(int argc, char* argv[])
 			ofstream fout(fn_base + ".gamma");
 			fout << gamma << endl;
 			fout.close();
-			qq_stats.print_stats_to_file(fn_base +  ".qq_plot_stats", gamma, n_accessions);
+			if(vm.count("pattern_counter")) 
+				qq_stats.print_stats_to_file_norm_unique_tests(fn_base +  ".qq_plot_stats.n", 
+						gamma, n_accessions, pa_patterns_counter.size());
+			else
+				qq_stats.print_stats_to_file(fn_base +  ".qq_plot_stats", gamma, n_accessions);
+
 		}
+		// Output to file the number of tested k-mers
+		ofstream fout(fn_base + ".tested_kmers");
+		fout << k_heap[0].number_of_insertion() << endl; 
+		fout.close();
+
 
 	}
 	catch(exception& e) {
