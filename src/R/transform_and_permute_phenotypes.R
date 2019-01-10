@@ -38,7 +38,7 @@ n_permute <- as.numeric(args[3])
 fn_out_phenotypes <- args[4]
 fn_out_trans_phenotypes <- args[5]
 f_log <- file(args[6])
-fn_inv_cov_matrix <- paste(args[5],".inv_cov_matrix",sep="")
+fn_inv_cov_matrix <- args[7]
 
 
 # 1. Load phenotype file
@@ -49,7 +49,7 @@ n_acc = nrow(phenotypes)
 
 # 2. Load kinship matrix
 K <- read.csv(fn_kinship, sep='\t',header =FALSE)
-K <- as.matrix(K[,1:(dim(K)[2]-1)])
+K <- as.matrix(K)
 
 # Check matrix is positive semi-definite
 if(!is.positive.semi.definite(K)) {
