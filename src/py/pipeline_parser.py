@@ -14,7 +14,6 @@ parser = argparse.ArgumentParser(description='Run k-mer associations and then GE
 parser.add_argument("--pheno", dest = "fn_phenotype", type=str, required=True,
         help='phenotype file name Format:sample name[TAB]phenotype val[NEW-LINE]...)')
 
-# 
 # output directory
 parser.add_argument("--outdir", dest = "outdir", type=str, required=True,
         help='Directory to output pipeline results (shouldnt exist)')
@@ -40,40 +39,68 @@ parser.add_argument("-l", "--kmer_len", dest = "kmers_len", type=int,choices=ran
         help='Length of K-mers in the database table')
 
 # number of k-mers to take
-parser.add_argument("-k", "--kmers_number", dest = "n_kmers", type=int, default=1000001,
+parser.add_argument("-k", "--kmers_number", dest = "n_kmers", type=int, default=100001,
         help='Numbers of k-mers to filter from first step (due to bug in GEMMA 0.98 number shouldnt be a multiplication of 20K)')
 
-# MAF (for k-mers and also for SNPs if used)
-parser.add_argument("--maf", dest = "maf", type=float, default=0.05,
-        help='Minor allele frequency')
+# number of snps to take (if a two step method is used)
+parser.add_argument("--snps_number", dest = "n_snps", type=int, default=10001,
+        help='Numbers of snps to filter from first step (used only if there using a two step snps approximation)')
+
 
 # Number of permutation
 parser.add_argument("--permutations", dest = "n_permutations", type=int, default=0,
         help='number of permutation for permutation test')
 
-
-# Run GEMMA on SNPs
-parser.add_argument("--run_on_snps", dest = "run_snps", help="run pipeline with the same parameters on SNPs (for comparisons)",
+# Run SNPs associations in ONE step - only run GEMMA
+parser.add_argument("--run_on_snps_one_step", dest = "run_one_step_snps", help="run pipeline with the same parameters on SNPs",
         action="store_true")
 
-# Percent of missing values of SNPs to tolerate
-parser.add_argument("--miss_gemma", dest = "miss_gemma", type=float, default=0.5,
-        help='Tolerance for missing values in SNPs table')
+# RUN SNPs association in TWO steps - for permutations, first filter likley snps and then run GEMMA on them
+parser.add_argument("--run_on_snps_two_steps", dest = "run_two_steps_snps", 
+        help="run pipeline with the same parameters on SNPs - first filtering using GRAMMAR-Gamma and then using GEMMA for the top ones",
+        action="store_true")
 
+### Percent of missing values of SNPs to tolerate
+##parser.add_argument("--miss_gemma", dest = "miss_gemma", type=float, default=0.5,
+##        help='Tolerance for missing values in SNPs table')
+
+## MAF (for k-mers and also for SNPs if used)
+parser.add_argument("--maf", dest = "maf", type=float, default=0.05,
+        help='Minor allele frequency')
+
+## MAC (for k-mers and also for SNPs if used)
+parser.add_argument("--mac", dest = "mac", type=float, default=5,
+        help='Minor allele count')
+
+## Min data poinrt
+parser.add_argument("--min_data_points", dest = "min_data_points", type=float, default=30,
+        help='Stop running if there is less data points than this threshold')
 
 # SNP files (bed/bim/fam)
 parser.add_argument("--snp_matrix", dest = "snps_matrix", type=str,
-        default = "/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/ArticlePhenotypes/1001G_SNPs_info/filer_vcf_file/1001genomes_snp-filtered",
+        default = "/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/ArticlePhenotypes/1001G_SNPs_info/1001genomes_snp",
         help='base name for snps bed/bim/fam files')
 
-
+# Control the verbosity of the program
 parser.add_argument("-v", "--verbose", dest = "verbose",  help="increase output verbosity",
         action="store_true")
+
+## count patterns of presence absence
+parser.add_argument("--pattern_counter", dest = "kmers_pattern_counter",  
+        help="Count the number of presence absence patterns k-mers pattern (has a large RAM usage)",
+        action="store_true")
+
+## an option specifying if to calculate or not a a qq plot for the k-mers (default is yes)
+parser.add_argument("--no_qq_plot", dest = "qq_plot",  
+        help="Don't calculate a qq plot (less computations)", action="store_false")
+
+## Keep the intermediate files
+parser.add_argument("--dont_remove_intermediates", dest = "remove_intermediate",  
+        help="Mostly for debugging, to keep the intermediate files", action="store_false")
 
 # path for GEMMA
 parser.add_argument("--gemma_path", dest = "gemma_path", type=str,
         default = "/ebio/abt6/yvoichek/smallproj/prefix/bin/gemma",
         help='path to GEMMA')
-
 
 args = parser.parse_args()
