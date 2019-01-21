@@ -2,7 +2,7 @@
  *       @file  kmers_merge_multiple_databaes.h
  *      @brief  
  *
- * Detailed description starts here.
+ *	The merge kmers table is NOT promised to have k-mers ordered!
  *
  *     @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
  *
