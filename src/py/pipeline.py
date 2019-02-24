@@ -209,9 +209,13 @@ def main():
         paths["best snps pvals"] = paths["snps_associations_dir"] + "/" + "best_pvals"
         res = calc_best_pvals(paths["snps_associations_dir"] + "/output", paths["best snps pvals"])
         th_5per = get_threshold_from_perm(res, "P", args.n_permutations, 0.05)
+        th_10per = get_threshold_from_perm(res, "P", args.n_permutations, 0.1)
         run_and_log_command("echo %f > %s/threshold_5per" % (th_5per, paths["snps_associations_dir"]),f_log)
-        run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold" %\
+        run_and_log_command("echo %f > %s/threshold_10per" % (th_10per, paths["snps_associations_dir"]),f_log)
+        run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold_5per" %\
                 (paths["snps_associations_dir"], th_5per, paths["snps_associations_dir"]), f_log)
+        run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold_10per" %\
+                (paths["snps_associations_dir"], th_10per, paths["snps_associations_dir"]), f_log)
         
 
     paths["best kmers pvals"] = paths["kmers_associations_dir"] + "/" + "best_pvals"
