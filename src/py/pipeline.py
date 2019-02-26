@@ -87,6 +87,9 @@ def main():
            args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"], 
            paths["EMMA_perm_log_fn"], paths["inverse_covariance_matrix"], paths["log_R_permute"])
     run_and_log_command(cur_cmd, f_log)
+
+    ## handles for all gemma runs (to monitor how many are running)
+    gemma_handles = []
     ##############################################################################################################
     # Calculate affective minor allele frequency
     n_accession = len(file(paths["pheno_intersected_fn"]).read().split("\n")[1:-1])
@@ -135,10 +138,10 @@ def main():
                 (paths["pheno_permuted_fn"], p_ind +2,  fam_fn)
         run_and_log_command(cur_cmd, f_log)
         # run gemma on best k-mers
-        cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -maf %f -miss 0.5 &" % \
+        cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -maf %f -miss 0.5" % \
                 (args.gemma_path, base_name,  paths["kinship_fn"], \
                 paths["kmers_associations_dir"] + "/output", p_name, affective_maf)
-        run_gemma_cmd(cur_cmd, args.parallel - 1, f_log)
+        run_gemma_cmd(cur_cmd, args.parallel - 1, gemma_handles, f_log)
     
     ##############################################################################################################
     ########################################      SNPs  associations      ########################################
@@ -167,11 +170,11 @@ def main():
         create_full_fam_file("%s.fam" % paths["snps_table_fn"],paths["snps_fam"],paths["pheno_permuted_fn"],args.n_permutations+1)
         
         # Run GEMMA on the full phenotypes
-        cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5 &" % \
+        cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5" % \
                 (args.gemma_path, paths["snps_table_fn"], paths["snps_kinship"], \
                 paths["snps_associations_dir"] + "/output", \
                 phenotypes_names[0], 1, affective_maf)
-        run_gemma_cmd(cur_cmd, args.parallel-1, f_log)
+        run_gemma_cmd(cur_cmd, args.parallel-1, gemma_handles, f_log)
 
         if args.run_two_steps_snps:
             cur_cmd = "%s %s %s %s %s 0.05 5" % \
@@ -184,24 +187,24 @@ def main():
                 # Create the relevan fam file (just link the general one we created)
                 run_and_log_command("cp %s.fam %s.fam" % (paths["snps_table_fn"], cur_base_bedbim), f_log)
                 # Run GEMMA
-                cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5 &" % \
+                cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5"  % \
                         (args.gemma_path, cur_base_bedbim, paths["snps_kinship"], \
                         paths["snps_associations_dir"] + "/output", \
                         p_name, p_ind+2, affective_maf)
-                run_gemma_cmd(cur_cmd, args.parallel-1, f_log)
+                run_gemma_cmd(cur_cmd, args.parallel-1, gemma_handles, f_log)
 
         if args.run_one_step_snps:
             for (p_ind, p_name) in enumerate(phenotypes_names[1:]):
-                cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5 &" % \
+                cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5" % \
                         (args.gemma_path, paths["snps_table_fn"], paths["snps_kinship"], \
                         paths["snps_associations_dir"] + "/output", \
                         p_name, p_ind+1, affective_maf)
-                run_gemma_cmd(cur_cmd, args.parallel-1, f_log)
+                run_gemma_cmd(cur_cmd, args.parallel-1, gemma_handles, f_log)
     
     ##############################################################################################################
     ##################################      Accumulate general statistics      ###################################
     ##############################################################################################################
-    while count_running_gemma() != 0: #make sure all GEMMA finished running
+    while count_running_gemma(gemma_handles) != 0: #make sure all GEMMA finished running
         time.sleep(30)
     
     ## Save the smallest p-values for k-mers associations in the permutations

@@ -2,6 +2,7 @@ from glob import glob
 import os
 import sys
 import subprocess
+import shlex
 
 def get_file_type_in_dir(dir_name, type_suffix):
     fns = glob("%s/*.%s" % (dir_name, type_suffix))
@@ -22,9 +23,8 @@ def create_new_relatedness_matrix(fn_in, fn_out, indices):
     fout.write("\n".join(["\t".join(x) for x in m]) + "\n")
     fout.close()
 
-def count_running_gemma():
-    return int(subprocess.check_output("ps -c | grep gemma | wc -l" , \
-            shell=True, stderr = subprocess.PIPE)[:-1])
+def count_running_gemma(g_handles):
+    return len([x for x in g_handles if x.poll() == None])
 
 def get_best_pval(fn):
     return subprocess.check_output("cat %s | tail -n +2 | cut -f9 | awk '$1 < 0.001' | sort -g | head -n1"\
@@ -58,10 +58,12 @@ def run_and_log_command(cmd, logger):
     logger.writelines("RUN: " + cmd + "\n")
     os.system(cmd)
 
-def run_gemma_cmd(cmd, maximal_to_run, logger):
-    while count_running_gemma() >= maximal_to_run:
+def run_gemma_cmd(cmd, maximal_to_run, g_handles, logger):
+    while count_running_gemma(g_handles) >= maximal_to_run:
         time.sleep(30)
-    run_and_log_command(cmd, logger)
+    g_handles.append(subprocess.Popen(shlex.split(cmd)))
+#    run_and_log_command(cmd, logger)
+    logger.write("RUNG ({}/{}): {}\n".format(count_running_gemma(g_handles), len(g_handles), cmd)) 
 
 def copy_phenotypes(original_file, dest_file,average_script, logger):
     if multiple_phenotypes_per_accession(original_file):
