@@ -99,6 +99,17 @@ KmersSet load_kmer_raw_file(std::string filename,
 KmersSet load_kmer_and_score_raw_file(std::string filename, std::size_t set_initial_size = 100000);
 // Func: bitwise-reverse of uint64
 uint64_t reverseOne(uint64_t x);
+
+// Func: kmer reverse complement
+inline uint64_t kmer_reverse_complement(uint64_t x, const uint32& k_len) {
+	x = ((x & 0xFFFFFFFF00000000) >> 32) | ((x & 0x00000000FFFFFFFF) << 32);
+	x = ((x & 0xFFFF0000FFFF0000) >> 16) | ((x & 0x0000FFFF0000FFFF) << 16);
+	x = ((x & 0xFF00FF00FF00FF00) >> 8)  | ((x & 0x00FF00FF00FF00FF) << 8);
+	x = ((x & 0xF0F0F0F0F0F0F0F0) >> 4)  | ((x & 0x0F0F0F0F0F0F0F0F) << 4);
+	x = ((x & 0xCCCCCCCCCCCCCCCC) >> 2)  | ((x & 0x3333333333333333) << 2);
+	return (~x) >> (64 - k_len - k_len);
+}
+
 double get_time(void);
 
 typedef std::tuple<uint64_t, double, size_t> AssociationScoreHeap; //k-mer / score/ row index in table
