@@ -1,15 +1,27 @@
 ///
-///      @file  F_list_kmers_found_in_multiple_DBs.cpp
+///      @file  list_kmers_found_in_multiple_samples.cpp
 ///     @brief  Go over a list of k-mer DBs and output only k-mers appearing in at least 
 /// 		N (defined by user) DBs. Then outputing the k-mers in a binary format.
 ///
-/// Detailed description starts here.
-///
+//		Read all the sorted kmers files and collect statistics on them:
+//		1. In how many accessions they were found
+//		2. In how many they apeard in canonized/non-canonized form or both
+//
+//		Output the general statistics on how many times they were found in
+//		which form.
+//
+//		Filter kmers to the ones apearing at least N times and found in
+//		every form at least in some defined percent.
+//
+//		For example: a kmer K will pass the threshold if it:
+//		1. Found in at least 5 acessions
+//		2. Found at least 20% of the time in every form
+//		*  So if it apeared in 100 accessions, we should 20 accessions
+//		with each form.
+//
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
-///  @internal
 ///    Created  08/14/18
-///   Revision  $Id: doxygen.cpp.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
 ///   Compiler  gcc/g++
 ///    Company  Max Planck Institute for Developmental Biology Dep 6
 ///  Copyright  Copyright (c) 2018, Yoav Voichek
@@ -20,83 +32,145 @@
 ///
 
 #include "kmer_general.h"
+#include "kmers_single_database.h"
 
+#include <cmath>
 using namespace std;
+
+void output_uint64_t_matrix(const string& fn, const vector<vector<uint64_t> >& M) {
+	ofstream fout(fn);
+	for(size_t i=0; i<M.size(); i++) {
+		for(size_t j=0; j<M[i].size(); j++) {
+			if(j>0)
+				fout << "\t";
+			fout <<  M[i][j];
+		}
+		fout << endl; 
+	}
+	fout.close();
+}
 
 int main(int argc, char *argv[]) {
 	/* Read user input */
-	if(argc != 6) {
+	if(argc != 7) {
 		cerr << "usage: " << argv[0] << 
-			" <1 file with KMC DBs paths> <2 output file> <3 minimum k-mer counts> <4 kmer len> <5  hash table initial size>" << endl;
+			" <1 file with paths to kmers files> <2 output file> <3 minimum k-mer counts> <4 kmer len> <5  hash table initial size> <6 minimum strand percent>" << endl;
 		return -1;
 	}
-	// Read accessions to use
-	vector<KMCDataBaseHandle> db_handles = read_accession_db_list(argv[1]); 
-	string output_fn(argv[2]);
-	size_t minimum_kmer_count = atoi(argv[3]);
-
-	/* Build the hash table that will contain all the kmers counts */
-	//KmerUint64Hash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
-	//main_db.set_empty_key(NULL_KEY); // need to define "empty key" 
-	KmerUint64SparseHash main_db(atoi(argv[5])); // Can get the initial hash_table_size from user
 	
-	/* Defining variables to use while going over the k-mers */
-	cerr << "k-mer length " << atoi(argv[4]) << endl;
-	CKmerUpTo31bpAPI kmer_obj(atoi(argv[4]));
-	vector<uint64_t> k_mers;
-	uint kmer_counter;
-//	KmerUint64Hash::iterator it_hash;
-	KmerUint64SparseHash::iterator it_hash;
+	// Read accessions to use
+	vector<AccessionPath> sorted_kmers_fn = read_accessions_path_list(argv[1]);
+	vector<KmersSingleDataBaseSortedFile> list_handles;
 
-	/* Going over all k-mers DBs */
-	for(size_t i=0; i<db_handles.size(); i++) {
-		cerr << i << "\tloading: " << db_handles[i].name << endl;
+	// Open all kmers files
+	size_t N = sorted_kmers_fn.size();
+	for(size_t i=0; i<N; i++) 
+		list_handles.emplace_back(sorted_kmers_fn[i].path);
 
-		CKMCFile kmer_db;
-		kmer_db.OpenForListing(KMC_db_full_path(db_handles[i])); // Open a KMC DB
-		k_mers.resize(0);  	
+	// Read filtering parameters
+	size_t minimum_kmer_count = atoi(argv[3]);
+	double minimum_strand_per = atof(argv[6]);
+	size_t kmer_len = atoi(argv[4]);
+
+	// Build the hash table that will contain all the kmers counts
+	KmerUint64Hash kmers_hash(atoi(argv[5])); // Initial hash_table_size from user
+	kmers_hash.set_empty_key(NULL_KEY);
+	
+	// Defining variables to use while going over the k-mers
+	vector<uint64_t> kmers, flags, unique_kmers;
+	KmerUint64Hash::iterator it_hash;
+	
+	// statistics collection
+	vector<uint64_t> shareness(N+1, 0);	
+	vector<vector<uint64_t> > only_canonical(N+1,vector<uint64_t>(N+1,0));
+	vector<vector<uint64_t> > only_non_canonical(N+1,vector<uint64_t>(N+1,0));
+	vector<vector<uint64_t> > both_forms(N+1,vector<uint64_t>(N+1,0));
+
+	// We want to keep track for each kmer if it apeared in canonical/non-canonical or both
+	// as the counters have 64 bits and we assume we will have less than 1,000,000 individuals
+	// we can put 3 counters in the same word. The following array define the constant to add.
+	uint64_t adders[] = {1ull+(1ull<<20ull), 1ull+(1ull<<40ull), 1ull+0ull}; 
+	
+	// Output files:
+	ofstream file_out_kmers(argv[2], ios::binary); // kmers passing filters
+	ofstream file_non_pass_kmers(string(argv[2]) + ".no_pass_kmers"); // kmers not passing filters
+	file_non_pass_kmers << "kmer\tcount_all\tcanonical\tnon-canonical\tboth" << endl;
+	
+	uint64_t STEPS = 5000;
+	uint64_t cnt_no_pass(0), cnt_pass(0), cnt_low_MAC;
+	for(uint64_t step_i=1; step_i<=(STEPS+1); step_i++) { // the +1 in STEPS is for debugging
+		kmers_hash.clear(); // Empty the hash table
+		unique_kmers.resize(0); // Empty unique kmers collection
+
+		// Set threshold until which kmer to read
+		uint64_t current_threshold = ((((1ull << (kmer_len*2ull))-1ull) / STEPS)+1) * step_i;
+		cerr << step_i << " / " << STEPS << "\t:\t" << bitset<WLEN>(current_threshold);
 		
-		while (kmer_db.ReadNextKmer(kmer_obj, kmer_counter))// Reading k-mers in file
-			k_mers.push_back(kmer_obj.to_uint());
-
-		/* Update hash table */
-		uint64_t or_all = 0;
-		for(size_t k=0; k<k_mers.size(); k++) {
-			it_hash = main_db.find(k_mers[k]);
-			or_all |= k_mers[k];
-			if(it_hash == main_db.end()){ 
-				main_db.insert(KmerUint64Hash::value_type(k_mers[k], 1));
-			} else { 
-				it_hash->second++;	}
+		// Go over all the kmers and collect information
+		for(size_t i=0; i<N; i++) { //over individuals
+			list_handles[i].load_kmers_upto_x(current_threshold, kmers, flags); // read kmers & flags
+			for(size_t kmer_i=0; kmer_i < kmers.size(); kmer_i++) {
+				uint64_t cur_adder = adders[flags[kmer_i]-1]; // Flag should never be zero!
+				
+				it_hash = kmers_hash.find(kmers[kmer_i]);
+				if(it_hash == kmers_hash.end()) { // new kmer
+					kmers_hash.insert(KmerUint64Hash::value_type(kmers[kmer_i], cur_adder));
+					unique_kmers.push_back(kmers[kmer_i]);
+				} else
+					it_hash->second += cur_adder;
+			}
 		}
-		cerr << "or mask: " << bitset<64>(or_all) << "\tsize of hash: " << main_db.size() <<  endl;
-	}
-	/* sort all k-mers */
-	k_mers.resize(0);
-	vector<uint64_t> shareness(db_handles.size()+1, 0);
-	for(auto it : main_db) {
-		if(it.second > db_handles.size()) {
-			cout << "Error! " << bitset<64>(it.first) << "\t" << it.second << endl;
-		} else {
-		shareness[it.second]++;
+		cerr << "\tunique kmers: " << unique_kmers.size() << endl;
+		sort(unique_kmers.begin(), unique_kmers.end()); // Sort so the end list will also be sorted
+		// output kmers that pass threshold and collect statistics
+		for(size_t i=0; i<unique_kmers.size(); i++) {
+			it_hash = kmers_hash.find(unique_kmers[i]); // kmers from unique_kmers have to be in hash
+			uint64_t counts = it_hash->second;
+			uint64_t count_all       = counts         & 0x00000000000FFFFF;
+			uint64_t count_canon     = (counts >> 20) & 0x00000000000FFFFF;
+			uint64_t count_non_canon = (counts >> 40) & 0x00000000000FFFFF;
+			uint64_t count_both      = count_all - count_canon - count_non_canon;
+
+			// Update general statistics
+			only_canonical[count_all][count_canon]++;
+			only_non_canonical[count_all][count_non_canon]++;
+			both_forms[count_all][count_both]++;
+
+			// Filter or not?
+			if(count_all>=minimum_kmer_count) { // pass MAC
+				if ((static_cast<double>(count_canon + count_both) >= 
+							ceil(minimum_strand_per * static_cast<double>(count_all))) && 
+						(static_cast<double>(count_non_canon + count_both) >= 
+						 ceil(minimum_strand_per * static_cast<double>(count_all)))) {
+					file_out_kmers.write(reinterpret_cast<const char *>(&unique_kmers[i]), sizeof(unique_kmers[i]));
+					cnt_pass++;
+					shareness[count_all]++; // This statistics only for the used k-mers
+				} else {
+					file_non_pass_kmers << bits2kmer31(unique_kmers[i], kmer_len) << "\t"
+						<< count_all << "\t" << count_canon << "\t" << count_non_canon << "\t"
+						<< count_both << endl;
+					cnt_no_pass++;
+				}
+			}	
 		}
-		if(it.second>=minimum_kmer_count) 
-			k_mers.push_back(it.first);	
 	}
-	cerr << "Sorting..." << endl;
-	sort(k_mers.begin(), k_mers.end());	
-	cerr << "Finish sorting" << endl;
+	cerr << "kmers lower than MAC:\t" << cnt_low_MAC << endl;
+	cerr << "Pass kmers:\t" << cnt_pass << endl;
+	cerr << "pass MAC bot not pass strand filter:\t" << cnt_no_pass << endl;
 
-	/* output all the k-mers apearing more than once to a file */
-	ofstream file(output_fn, ios::binary);
-	for(size_t i=0; i<k_mers.size(); i++) 
-		file.write(reinterpret_cast<const char *>(&k_mers[i]), sizeof(k_mers[i]));
-	file.close();
+	file_out_kmers.close();
+	file_non_pass_kmers.close();
 
-	/* Output shareness measure */
-	cout << "k-mer appearance\tcount" << endl;
+	/* Output shareness measures */
+	ofstream file_shareness(string(argv[2]) + ".shareness");
+	file_shareness << "kmer appearance\tcount" << endl;
 	for(size_t i=0; i<shareness.size(); i++) 
-		cout << i << "\t" << shareness[i] << endl;
+		file_shareness << i << "\t" << shareness[i] << endl;
+	file_shareness.close();
 
+	output_uint64_t_matrix(string(argv[2]) + ".stats.only_canonical", only_canonical);
+	output_uint64_t_matrix(string(argv[2]) + ".stats.only_non_canonical", only_non_canonical);
+	output_uint64_t_matrix(string(argv[2]) + ".stats.both", both_forms);
 	return 0;
 }
+

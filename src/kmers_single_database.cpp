@@ -72,6 +72,7 @@ CKMCFile KmersSingleDataBase::get_KMC_handle() {
 KmersSingleDataBaseSortedFile::KmersSingleDataBaseSortedFile():
 	m_fin(),
 	m_last_kmer(NULL_KEY),
+	m_flag(NULL_KEY),
 	m_kmers_in_file(NULL_KEY),
 	m_kmers_count(NULL_KEY) {
 	}
@@ -115,6 +116,7 @@ void KmersSingleDataBaseSortedFile::open_file(const std::string &filename) {
 void KmersSingleDataBaseSortedFile::close_file() {
 	if(m_fin.is_open()) {
 		m_fin.close();
+		m_flag = NULL_KEY;
 		m_last_kmer = NULL_KEY;
 		m_kmers_in_file = NULL_KEY;
 		m_kmers_count = NULL_KEY;
@@ -123,23 +125,36 @@ void KmersSingleDataBaseSortedFile::close_file() {
 
 void KmersSingleDataBaseSortedFile::read_kmer() {
 	m_fin.read(reinterpret_cast<char *>(&m_last_kmer), sizeof(m_last_kmer));
+	m_flag = m_last_kmer >> (WLEN-2);
+	m_last_kmer &= 0x3FFFFFFFFFFFFFFF; // The last two bits are flags
+
 	m_kmers_count++;
 }
 
 
 void KmersSingleDataBaseSortedFile::load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers) {
+	vector<uint64_t> temp_flags;
+	load_kmers_upto_x(threshold, kmers, temp_flags);
+}
+
+void KmersSingleDataBaseSortedFile::load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers, std::vector<uint64_t> &flags) {
 	if(!m_fin.is_open()) {
 		throw std::logic_error("Trying to read k-mers from a non-open file.");
 	}
 	kmers.resize(0);
+	flags.resize(0);
 	while((m_last_kmer <= threshold) && (m_kmers_count<m_kmers_in_file)) {
 		kmers.push_back(m_last_kmer);
+		flags.push_back(m_flag);
 		read_kmer(); // over-ride last kmer
 	}
 	if((m_last_kmer <= threshold) && (m_kmers_count==m_kmers_in_file)) {
-		if(m_last_kmer != NULL_KEY)
+		if(m_last_kmer != NULL_KEY) {
+			flags.push_back(m_flag);
 			kmers.push_back(m_last_kmer); // So we won't read the lasy k-mer twice
+		}
 		m_last_kmer = NULL_KEY;
+		m_flag = NULL_KEY;
 	}
 }
 

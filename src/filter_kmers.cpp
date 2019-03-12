@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
 		cerr << "kmers file is empty" << endl;
 		return 1;
 	}
-	vector<KMCDataBaseHandle> DB_paths = read_accession_db_list(argv[3]);
+	vector<AccessionPath> DB_paths = read_accessions_path_list(argv[3]);
 	uint64_t words_per_kmer = (DB_paths.size() +  WLEN - 1) / WLEN;
 
 	ifstream table_handle(argv[2], ios::binary | ios::ate);

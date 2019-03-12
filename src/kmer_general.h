@@ -26,8 +26,6 @@
 
 double get_mem_used_by_process(); // Daignostic tool
 
-	// Struct: Hash for 64 bits
-
 /**
  * @brief   Hash function for 64 bit
  * @param   get a 64 bit unsigned long long
@@ -44,21 +42,21 @@ struct Hash64 {
 	}
 };
 
-// Define my hash tables / sets
+// Definition of hash tables / sets
 typedef google::dense_hash_set<uint64_t, Hash64> KmersSet; 
 typedef google::dense_hash_map<uint64_t, uint64_t, Hash64> KmerUint64Hash; 
 typedef google::sparse_hash_map<uint64_t, uint64_t, Hash64> KmerUint64SparseHash; 
 
 // Struct: Holds info on k-mers KMC DB
-struct KMCDataBaseHandle {
-	std::string dir_path;
+struct AccessionPath {
+	std::string path;
 	std::string name;
 };
 
 typedef std::pair <std::vector<std::string>, std::vector<float> > PhenotypeList;
 
 // Func: return the full path of a KMD db from its handle
-inline std::string KMC_db_full_path(const KMCDataBaseHandle &h) { return h.dir_path + "/" + h.name;}
+inline std::string KMC_db_full_path(const AccessionPath &h) { return h.path + "/" + h.name;}
 
 void filter_kmers_to_set(std::vector<uint64_t> &kmers, const KmersSet &set_kmers);
 
@@ -88,7 +86,7 @@ inline bool lookup_x(const KmersSet& Set, const uint64_t& kmer)
 }
 
 // Func: Read the list of accessions to use
-std::vector<KMCDataBaseHandle> read_accession_db_list(std::string filename);
+std::vector<AccessionPath> read_accessions_path_list(std::string filename);
 // Func: transform a bit representation to bp representation
 std::string bits2kmer31(uint64_t w, const std::size_t& k); 
 // Func: Read a file with a list of k-mers (need to add prefix/header to files)
@@ -159,13 +157,13 @@ void write_fam_file(const std::vector<PhenotypeList> &phenotypes, const std::str
 
 void write_fam_file(const PhenotypeList &phenotype, const std::string &fn);
 
-std::size_t get_index_DB(const std::string &name, const std::vector<KMCDataBaseHandle> &DBs);
+std::size_t get_index_DB(const std::string &name, const std::vector<AccessionPath> &DBs);
 
-PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const std::vector<KMCDataBaseHandle> &DB_paths, const bool &must_be_present);
+PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const std::vector<AccessionPath> &DB_paths, const bool &must_be_present);
 
-std::vector<std::string> get_DBs_paths(const std::vector<std::string> &names, const std::vector<KMCDataBaseHandle> &DBs);
+std::vector<std::string> get_DBs_paths(const std::vector<std::string> &names, const std::vector<AccessionPath> &DBs);
 
-std::vector<std::string> get_DBs_names(const std::vector<KMCDataBaseHandle> &DBs);
+std::vector<std::string> get_DBs_names(const std::vector<AccessionPath> &DBs);
 
 #endif
 

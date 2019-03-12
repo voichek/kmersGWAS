@@ -56,12 +56,12 @@ double get_mem_used_by_process(){ //Note: this value is in MB!
  * @param   filename path
  * @return  list of DB name and path
  */
-vector<KMCDataBaseHandle> read_accession_db_list(string filename) {
+vector<AccessionPath> read_accessions_path_list(string filename) {
 	ifstream fin(filename);
-	vector<KMCDataBaseHandle> res;
-	KMCDataBaseHandle db_info;
+	vector<AccessionPath> res;
+	AccessionPath db_info;
 
-	while(fin >> db_info.dir_path) {
+	while(fin >> db_info.path) {
 		fin >> db_info.name;
 		res.push_back(db_info);
 	}
@@ -242,7 +242,7 @@ void write_fam_file(const PhenotypeList &phenotype, const string &fn) {
 	write_fam_file(vector<PhenotypeList>{phenotype}, fn);
 }
 
-size_t get_index_DB(const string &name, const vector<KMCDataBaseHandle> &DBs) {
+size_t get_index_DB(const string &name, const vector<AccessionPath> &DBs) {
 	size_t index = (~0u);
 	for(size_t j=0; j<DBs.size(); j++) {
 		if(DBs[j].name == name) {
@@ -254,7 +254,7 @@ size_t get_index_DB(const string &name, const vector<KMCDataBaseHandle> &DBs) {
 	return index;
 }
 
-PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const vector<KMCDataBaseHandle> &DB_paths, const bool &must_be_present) {
+PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const vector<AccessionPath> &DB_paths, const bool &must_be_present) {
 	PhenotypeList intersect_pl;
 	for(size_t i=0; i<pl.first.size(); i++) {
 		size_t index = get_index_DB(pl.first[i], DB_paths);
@@ -269,18 +269,18 @@ PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const
 	return intersect_pl;	
 }
 
-vector<string> get_DBs_paths(const vector<string> &names, const vector<KMCDataBaseHandle> &DBs) {
+vector<string> get_DBs_paths(const vector<string> &names, const vector<AccessionPath> &DBs) {
 	vector<string> paths;
 	for(size_t i=0; i<names.size(); i++) {
 		size_t index = get_index_DB(names[i], DBs);
 		if(index == (~0u))
 			throw std::logic_error("Couldn't find DB " + names[i]);
-		paths.push_back(DBs[index].dir_path);
+		paths.push_back(DBs[index].path);
 	}
 	return paths;
 }
 
-vector<string> get_DBs_names(const vector<KMCDataBaseHandle> &DBs) {
+vector<string> get_DBs_names(const vector<AccessionPath> &DBs) {
 	vector<string> names;
 	for(size_t i=0; i<DBs.size(); i++) {
 		names.push_back(DBs[i].name);

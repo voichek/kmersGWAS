@@ -6,7 +6,7 @@
 
 /**
  * @class KmersSingleDataBaseSortedFile
- * @brief managed accesses to a sorted k-mer file
+ * @brief Managed accesses to a sorted k-mer file
  */
 
 class KmersSingleDataBaseSortedFile {
@@ -21,6 +21,7 @@ class KmersSingleDataBaseSortedFile {
 	void close_file();
 	
 	void load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers);
+	void load_kmers_upto_x(const uint64_t &threshold, std::vector<uint64_t> &kmers, std::vector<uint64_t> &flags); 
 
 	uint64_t get_kmer_count() {return m_kmers_in_file;} // get the number of kmers in the file
 
@@ -29,23 +30,28 @@ class KmersSingleDataBaseSortedFile {
 	void read_kmer();
 
 	// variabled for reading sorted kmer file
-	std::ifstream m_fin;			// handle to file
+	std::ifstream m_fin;		// handle to file
 	uint64_t m_last_kmer;		// last kmer loaded
-	uint64_t m_kmers_in_file; // number of k-mers in file (calcluated once in init)
-	uint64_t m_kmers_count;			// last kmer index in file
+	uint64_t m_flag;		// last flag (2 MSB in kmer)
+	uint64_t m_kmers_in_file; 	// number of k-mers in file (calcluated once in init)
+	uint64_t m_kmers_count;		// last kmer index in file
 };
 
 
 
-/* class KmersSingleDataBase will represent a database of kmers
- * First, it will have a handel on the DB created by KMC and can easily open and iterate over it
- * Second, it will be able to intersect the DB with a set of kmers and output the result to an output file
+/**
+ * @class KmersSingleDataBase 
+ * @bried Represent a database of kmers
+ * 1. Handles a DB created by KMC and can easily open and iterate over it
+ * 2. Handles a sorted kmers list from the same folder
+ * 3. Can intersect the DB with a set of kmers and output the result to an output file
  */
 class KmersSingleDataBase {
 	public:
 	KmersSingleDataBase(const std::string& dir_path, const std::string& db_name, const uint32& kmer_length); // Constructor
 	KmersSingleDataBase(const KmersSingleDataBase &x) = delete;
 	KmersSingleDataBase(KmersSingleDataBase&&) = default;
+	KmersSingleDataBase& operator=(const KmersSingleDataBase&) = delete; //same for the = operator
 	~KmersSingleDataBase() {}; //Destructor (compiler generate one automatically, but safe to be explicit)
 
 	// return the name of the DB
@@ -72,13 +78,9 @@ class KmersSingleDataBase {
 	CKMCFile get_KMC_handle();
 
 	private:
-	KmersSingleDataBase& operator=(const KmersSingleDataBase&) = delete; //same for the = operator
-
 	std::string m_db_name;
 	std::string m_dir_path;
-	
 	KmersSingleDataBaseSortedFile m_sorted_kmers_f;
-
 	uint32 m_kmer_len; 
 };
 

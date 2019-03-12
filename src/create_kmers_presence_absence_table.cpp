@@ -32,12 +32,12 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Read accessions to use
-	vector<KMCDataBaseHandle> db_handles = read_accession_db_list(argv[1]); 
+	vector<AccessionPath> db_handles = read_accessions_path_list(argv[1]); 
 	vector<string> db_paths, db_names;
 	
 	for(size_t i=0; i<db_handles.size(); i++) {
 		db_names.push_back(db_handles[i].name);
-		db_paths.push_back(db_handles[i].dir_path);
+		db_paths.push_back(db_handles[i].path);
 	}
 	cerr << "Create merger" << endl;	
 	MultipleKmersDataBasesMerger merger(db_paths, db_names, argv[2], atoi(argv[4]));

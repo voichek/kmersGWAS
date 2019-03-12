@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
 	string output_base(argv[8]);
 
 	// load DBs files name
-	vector<KMCDataBaseHandle> DB_paths = read_accession_db_list(fn_db_file);
+	vector<AccessionPath> DB_paths = read_accessions_path_list(fn_db_file);
 	
 	// load phenotypes (needed for current DBs)
 	pair<vector<string>, vector<PhenotypeList>> phenotypes_file_info = load_phenotypes_file(fn_phenotypes);

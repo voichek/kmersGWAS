@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
 		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
 
 		// Load DB paths
-		vector<KMCDataBaseHandle> DB_paths = read_accession_db_list(vm["paths_file"].as<string>());
+		vector<AccessionPath> DB_paths = read_accessions_path_list(vm["paths_file"].as<string>());
 
 		// Loading the phenotype (also include the list of needed accessions)
 		pair<vector<string>, vector<PhenotypeList>> phenotypes_info = load_phenotypes_file(

@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
 	double MAF(atof(argv[4]));
 
 
-	vector<KMCDataBaseHandle> DB_paths = read_accession_db_list(fn_db_list);
+	vector<AccessionPath> DB_paths = read_accessions_path_list(fn_db_list);
 
 	MultipleKmersDataBases multiDB(
 			fn_kmers_table,
