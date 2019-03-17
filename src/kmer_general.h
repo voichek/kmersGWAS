@@ -165,5 +165,8 @@ std::vector<std::string> get_DBs_paths(const std::vector<std::string> &names, co
 
 std::vector<std::string> get_DBs_names(const std::vector<AccessionPath> &DBs);
 
+uint64_t kmers_step_to_threshold(const uint64_t &step, const uint64_t &total_steps, const uint64_t &kmer_length);
+
+uint64_t kmer2bits(std::string k);	
 #endif
 

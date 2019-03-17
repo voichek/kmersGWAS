@@ -1,8 +1,10 @@
 ///
-///      @file  F_create_kmer_table.cpp
+///      @file  create_kmers_presence_absence_table.cpp 
 ///     @brief  This program will create a table of presence absence accross DBs
-///
-/// Detailed description starts here.
+//		
+//		Taking the sorted general kmers list as well as the sorted kmers from 
+//		each accessions, create a table with kmers as rows and accessions as collumns
+//		where each cell indicate if the kmers was found in the accessions or not
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
@@ -16,8 +18,6 @@
 /// GNU General Public License as published by the Free Software Foundation.
 ///=====================================================================================
 ///
-
-
 #include "kmer_general.h"
 #include "kmers_merge_multiple_databaes.h"
 
@@ -27,29 +27,31 @@ int main(int argc, char *argv[]) {
 	/* Read user input */
 	if(argc != 5) {
 		cerr << "usage: " << argv[0] << 
-			" <file with KMC DBs paths> <name of sorted k-mer file> <output file> <kmer len>" << endl;
+			" <1 list of kmers files> <2 all sorted kmers> <3 output name> <4 kmer len>" << endl;
 		return -1;
 	}
 
 	// Read accessions to use
-	vector<AccessionPath> db_handles = read_accessions_path_list(argv[1]); 
-	vector<string> db_paths, db_names;
+	vector<AccessionPath> kmers_handles = read_accessions_path_list(argv[1]); 
+	vector<string> kmers_filenames, accessions_names;
 	
-	for(size_t i=0; i<db_handles.size(); i++) {
-		db_names.push_back(db_handles[i].name);
-		db_paths.push_back(db_handles[i].path);
+	ofstream fout_names(string(argv[3]) + ".names", ios::binary);
+	for(size_t i=0; i<kmers_handles.size(); i++) {
+		accessions_names.push_back(kmers_handles[i].name);
+		fout_names << kmers_handles[i].name << endl;
+		kmers_filenames.push_back(kmers_handles[i].path);
 	}
+	fout_names.close();
 	cerr << "Create merger" << endl;	
-	MultipleKmersDataBasesMerger merger(db_paths, db_names, argv[2], atoi(argv[4]));
+	MultipleKmersDataBasesMerger merger(kmers_filenames, accessions_names, argv[2], atoi(argv[4]));
 	
-	cerr << "open file" << endl;
-	ofstream fout(argv[3], ios::binary);
+	cerr << "Opens file" << endl;
+	ofstream fout(string(argv[3]) + ".table", ios::binary);
 	merger.output_table_header(fout);	
 	uint64_t total_iter = 5000;
-	for(uint i=1; i<=total_iter; i++) {
-		cerr << i << " - " << total_iter << " : Loading k-mers" << endl;
+	for(uint i=1; i<=(total_iter+1); i++) { // +1 is for debugging - should be empty
+		cerr << i << " / " << total_iter << " : Loading k-mers" << endl;
 		merger.load_kmers(i, total_iter);
-		cerr << "Outputing to table" << endl;
 		merger.output_to_table(fout);
 	}	
 	cerr << "close file" << endl;

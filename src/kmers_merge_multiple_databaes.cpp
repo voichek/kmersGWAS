@@ -1,14 +1,11 @@
 /**
  *       @file  kmers_merge_multiple_databaes.cpp
- *      @brief  
- *
- * Detailed description starts here.
+ *      @brief  Implementation of MultipleKmersDataBasesMerger 
  *
  *     @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
  *
  *   @internal
  *     Created  11/15/18
- *    Revision  $Id: doxygen.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
  *    Compiler  gcc/g++
  *     Company  Max Planck Institute for Developmental Biology Dep 6
  *   Copyright  Copyright (c) 2018, Yoav Voichek
@@ -30,29 +27,28 @@
 
 using namespace std;
 
-
-MultipleKmersDataBasesMerger::MultipleKmersDataBasesMerger(const vector<string> &DB_paths,
-		const vector<string> &db_names, 
-		const string &sorted_kmer_fn,
+MultipleKmersDataBasesMerger::MultipleKmersDataBasesMerger(
+		const vector<string> &sorted_kmers_filenames,
+		const vector<string> &accessions_names, 
+		const string &all_possible_kmers_filename,
 		const uint32 &kmer_len):
-	m_DBs(),
-	m_db_names(db_names),
+	m_sorted_kmers_list(),
+	m_accessions_name(accessions_names),
 	m_kmer_temp(), // just a temp vector
-	m_accessions(db_names.size()), 
+	m_accessions(accessions_names.size()), 
 	m_hash_words((m_accessions+WLEN-1)/WLEN),
-	kmers_to_index(),
-	container(),
-	m_kmer_len(kmer_len)
+	m_kmers_to_index(),
+	m_container(),
+	m_container_kmers(),
+	m_kmer_len(kmer_len),
+	m_possible_kmers(all_possible_kmers_filename)
 {
 	// build all the KmersSingleDataBase objects and open the sorted k-mer file
-	for(size_t i=0; i < m_db_names.size(); i++) {
-		cerr << "Open DB: " << m_db_names[i] << endl;
-		m_DBs.emplace_back(DB_paths[i] , m_db_names[i], m_kmer_len);
-		m_DBs.back().open_sorted_kmer_file(sorted_kmer_fn);
-	}
+	for(size_t i=0; i < m_accessions_name.size(); i++)
+		m_sorted_kmers_list.emplace_back(sorted_kmers_filenames[i]);
 
 	// Needs to define a "delete" key which is a non-possible input (our k-mer will be max 62 bits)
-	kmers_to_index.set_empty_key(NULL_KEY);
+	m_kmers_to_index.set_empty_key(NULL_KEY);
 }
 
 void MultipleKmersDataBasesMerger::output_table_header(ofstream& T) const {
@@ -63,61 +59,63 @@ void MultipleKmersDataBasesMerger::output_table_header(ofstream& T) const {
 
 void MultipleKmersDataBasesMerger::output_to_table(ofstream& T) const {
 	// writing the contents of the hash map
-	for(KmerUint64Hash::const_iterator it=kmers_to_index.begin(); it != kmers_to_index.end(); ++it) {		
-		T.write(reinterpret_cast<const char *>(&(it->first)), sizeof(it->first)); // write the k-mer	
-		for(size_t i=it->second; i<(it->second+m_hash_words); i++) 
-			T.write(reinterpret_cast<const char *>(&(container[i])), sizeof(container[i])); 
+	size_t index = 0;
+	for(size_t kmer_index=0; kmer_index<m_container_kmers.size(); kmer_index++) {
+		T.write(reinterpret_cast<const char *>(&(m_container_kmers[kmer_index])), 
+				sizeof(m_container_kmers[kmer_index])); // write the k-mer
+		for(size_t i=0; i<m_hash_words; i++) {
+			T.write(reinterpret_cast<const char *>(&(m_container[index])), sizeof(m_container[index]));
+			index++;
+		}
 	}
+	cerr << "Wrote: kmers=" << m_container_kmers.size() << "\tpa words=" << index << "\tcontainer size=" << m_container.size()
+		<< "\thash-map size=" << m_kmers_to_index.size() << endl;
 }
 
-void MultipleKmersDataBasesMerger::clear_content() {
-	kmers_to_index.clear();
-	container.resize(0);
-} // clear container 
 
 
 /**
- * @brief   kmer_multipleDB::load_kmers - load a subset of k-mers from sorted files
+ * @brief   load a subset of k-mers from sorted files and code presence/absence in table
  * @param   Which iteration (iter) is it from all iterations (total_iter)
- *			as we go over sorted k-mer files, we iterate each time until a threshold
- *			Notice: the last 2-bits are 0 in all k-mers as k-mers are 31bp (62 bits)
- *			so the last threshold is 001111111...111 = 0x3FFFFF...FF
+ *	    as we go over sorted k-mer files, we iterate each time until a threshold
+ *	    Note 1: the last 2-bits are 0 in all k-mers as k-mers are 31bp (62 bits)
+ *	    so the last threshold is 001111111...111 = 0x3FFFFF...FF
+ *	    Note 2: We use hash-table to find relevant row in the table, as the two
+ *	    lists are sorted this is not the most efficent solution.
+ *	    (Might change in the future)
  * @return  
  */
-void MultipleKmersDataBasesMerger::load_kmers(const uint64_t &iter, const uint64_t &total_iter, const KmersSet &set_kmers) {
-	// as k-mers are 31 bp - the largest possible value is 0011111111...1111
-	uint64_t current_threshold = ((1ull << (m_kmer_len*2ull))-1ull);
-	current_threshold = ((current_threshold / total_iter)+1)*iter;
+void MultipleKmersDataBasesMerger::load_kmers(const uint64_t &iter, const uint64_t &total_iter) { 
+	// clear relevant containers
+	m_container.resize(0); 
+	m_kmers_to_index.clear();
+
+	// define threshold to read kmers
+	uint64_t current_threshold = kmers_step_to_threshold(iter, total_iter, m_kmer_len);
 	cerr << iter << " / " << total_iter << "\t:\t" << bitset<WLEN>(current_threshold) << endl;
+	
+	// First reads all the kmers from the general list
+	m_possible_kmers.load_kmers_upto_x(current_threshold, m_container_kmers);
+	m_container.resize(m_hash_words * m_container_kmers.size(), 0);
+	
+	// Intialize dictionary from kmers to index of container
+	for(size_t kmer_index=0; kmer_index<m_container_kmers.size(); kmer_index++) 
+		m_kmers_to_index.insert(KmerUint64Hash::value_type(m_container_kmers[kmer_index], kmer_index*m_hash_words));
 
-	clear_content();
 	KmerUint64Hash::iterator it_hash;
-
-	uint64_t index; 
-	for(size_t acc_i = 0; acc_i < m_accessions; ++acc_i) {
-		cerr << total_iter << "\t" << iter << "\t" << acc_i << endl; 
+	for(size_t acc_i = 0; acc_i < m_accessions; ++acc_i) { // Go over all accessions
 		size_t hashmap_i = acc_i / WLEN; // which word to use
-		size_t bit_i = acc_i % WLEN; // which bit in word to use
-
+		size_t bit_i = acc_i % WLEN; 	 // which bit in word to use
 		uint64_t or_val = 1ull << bit_i; // create the word to use for modifying
 
-		// Reading new-kmers from file
-		m_DBs[acc_i].read_sorted_kmers(m_kmer_temp, current_threshold); // m_kmer_temp is emptied in func'
-		if(set_kmers.size() != 0)  
-			filter_kmers_to_set(m_kmer_temp, set_kmers);
+		// Reading kmers from file
+		m_sorted_kmers_list[acc_i].load_kmers_upto_x(current_threshold, m_kmer_temp);
 
 		// adding new k-mers info
-		for(auto const& it: m_kmer_temp) {
-			it_hash = kmers_to_index.find(it); // find if k_mer is allready in the hash map			
-			if(it_hash == kmers_to_index.end()) { //if not
-				kmers_to_index.insert(KmerUint64Hash::value_type(it, container.size()));
-				index = container.size() + hashmap_i;
-				for(size_t i=0; i<m_hash_words; i++)
-					container.push_back(0);
-			} else {
-				index = (it_hash->second)+hashmap_i;
-			}
-			container[index] |= or_val; //update container
+		for(size_t kmer_index=0; kmer_index<m_kmer_temp.size(); ++kmer_index) {
+			it_hash = m_kmers_to_index.find(m_kmer_temp[kmer_index]); // Find kmer index
+			if(it_hash != m_kmers_to_index.end())  //if in the list
+				m_container[(it_hash->second)+hashmap_i] |= or_val; //update container
 		}
 	}
 }

@@ -23,33 +23,7 @@
 
 using namespace std;
 
-uint64_t kmer2bits(string k) {
-	uint64_t b(0);
-	uint64_t cur_dubit;
-	for(size_t i=0; i<k.size(); i++) {
-		switch(char(k[k.size()-i-1])) {
-			case 'A' :cur_dubit = 0 ;
-			        break;
-			case 'C': cur_dubit = 1 ;
-			       break;
-			case 'G': cur_dubit = 2 ;
-			       break;
-			case 'T': cur_dubit = 3 ;
-				  break;
-			default: throw std::logic_error("Ilegal kmer");
-				 break;
-		}
-		b |= (cur_dubit << (i*2));
-	}
-//	uint64_t bt = (~reverseOne(b)) >> (WLEN-(k.size()*2));
-//	
-//	if (bt < b)
-//		return bt;
-//	else
-		return b;
-}
-
-//check all k-mers are from the same size
+//check all k-mers are of the same size
 pair<vector<uint64_t>, uint32_t> read_and_sort_kmers(const string file_name) {
 	string word;
 	size_t index(0);
@@ -65,12 +39,11 @@ pair<vector<uint64_t>, uint32_t> read_and_sort_kmers(const string file_name) {
 			throw std::logic_error("kmers of different size");
 		}
 		kmer_list.push_back(kmer2bits(word));
-		//cout << word << "\t" << kmer2bits(word) << "\t" << bits2kmer31(kmer2bits(word),31) <<  endl;
 		index++;
 	}
 	fin.close();
 	// sort k-mers
-//	sort(kmer_list.begin(), kmer_list.end());
+	sort(kmer_list.begin(), kmer_list.end());
 	return make_pair(kmer_list, kmer_len);
 }
 
@@ -136,11 +109,14 @@ int main(int argc, char* argv[]) {
 		uint64_t i_kl(0); // index kmers list
 		uint64_t i_kt(0); // index kmers table
 		vector<uint64_t> buffer(words_per_kmer+1);
+		bool advance_row = true;
 		while((i_kl < sorted_kmers.size()) && (i_kt < kmer_number)) {
-			table_handle.read(reinterpret_cast<char *>(buffer.data()), 
-					sizeof(uint64_t)*buffer.size());
-			if(buffer[0] == sorted_kmers[i_kl]) { // k-mer to find
-				//cerr << sorted_kmers[i_kl] << endl;
+			if(advance_row) { 
+				table_handle.read(reinterpret_cast<char *>(buffer.data()), sizeof(uint64_t)*buffer.size());
+				advance_row = false;
+			}
+
+			if(buffer[0] == sorted_kmers[i_kl]) { // if equal
 				fout << bits2kmer31(buffer[0], kmer_len);
 				//output presence/ absence	
 				for(size_t col_index=0; col_index<DB_paths.size(); col_index++) {
@@ -148,9 +124,15 @@ int main(int argc, char* argv[]) {
 					fout << "\t" << new_bit;
 				}
 				fout << "\n";
-				i_kl++; // next k-mer to look for
+				i_kl++; i_kt++; // advance both
+			} else { //advance only the smaller
+				if(buffer[0] < sorted_kmers[i_kl]) {
+					advance_row=true;
+					i_kt++;
+				} else {
+					i_kl++;
+				}
 			}
-			i_kt++; // next row in table
 		}
 		fout.close();
 		table_handle.close();
@@ -158,6 +140,5 @@ int main(int argc, char* argv[]) {
 		cerr << "Can't open table file" << endl;
 		return 1;
 	}
-
 	return 0;
 }

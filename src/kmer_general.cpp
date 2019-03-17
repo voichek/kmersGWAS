@@ -71,13 +71,12 @@ vector<AccessionPath> read_accessions_path_list(string filename) {
 
 ///
 /// @brief  filter from a kmer vector only the kmers part of a given set
-/// @param  1. vector of uint64 representing k-mers and a set of kmers (hash set)
-/// @return 
+/// @param  vector of uint64 representing k-mers and a set of kmers (hash set)
+/// If kmers were sorted they would stay sorted
 ///
 void filter_kmers_to_set(std::vector<uint64_t> &kmers, const KmersSet &set_kmers) {
-	// need to implement....
 	size_t move_to = 0;
-	for(size_t i=1; i<kmers.size(); i++) {
+	for(size_t i=0; i<kmers.size(); i++) {
 		if(lookup_x(set_kmers,kmers[i])) {
 			kmers[move_to] = kmers[i];
 			move_to++;
@@ -286,4 +285,35 @@ vector<string> get_DBs_names(const vector<AccessionPath> &DBs) {
 		names.push_back(DBs[i].name);
 	}
 	return names;
+}
+
+uint64_t kmers_step_to_threshold(const uint64_t &step, const uint64_t &total_steps, const uint64_t &kmer_length) {
+	uint64_t max_kmer = ((1ull << (kmer_length*2ull))-1ull); // = 00..00111..111
+	return ((max_kmer / total_steps)+1)*step;
+}
+
+uint64_t kmer2bits(string k) {
+	uint64_t b(0);
+	uint64_t cur_dubit;
+	for(size_t i=0; i<k.size(); i++) {
+		switch(char(k[k.size()-i-1])) {
+			case 'A' :cur_dubit = 0 ;
+					  break;
+			case 'C': cur_dubit = 1 ;
+					  break;
+			case 'G': cur_dubit = 2 ;
+					  break;
+			case 'T': cur_dubit = 3 ;
+					  break;
+			default : throw std::logic_error("Ilegal kmer");
+					  break;
+		}
+		b |= (cur_dubit << (i*2));
+	}
+	uint64_t bt = kmer_reverse_complement(b, k.size());  
+
+	if (bt < b)
+		return bt;
+	else
+		return b;
 }
