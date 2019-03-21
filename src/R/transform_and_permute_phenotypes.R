@@ -26,11 +26,11 @@ library(methods)
 library(mvnpermute)
 library(matrixcalc)
 
-source('/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/acc_kmer_counts/correlate_phenotype/src/R/emma.R')
+source('/ebio/abt6/yvoichek/kmers_GWAS/pipeline/src/R/emma.R')
 
 args <- commandArgs(trailingOnly = TRUE)
 
-set.seed(123456789) # To have a reporducible results
+#set.seed(123456789) # To have a reporducible results (for some reason this is still not the same, probably due to different platforms)
 # Load user parameters
 fn_phenotypes <- args[1]
 fn_kinship <- args[2]
