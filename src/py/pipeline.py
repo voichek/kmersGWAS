@@ -73,7 +73,7 @@ def main():
     cur_cmd = "python2.7 %s --pheno %s --fam_file %s --kinship_file %s --output_pheno  %s " + \
             "--output_kinship %s --DBs_list %s"
     cur_cmd = cur_cmd % (paths["kinship_intersect_script"], paths["pheno_orig_fn"], paths["snps_fam"], 
-            paths["snps_kinship"], paths["pheno_intersected_fn"], paths["kinship_fn"], args.db_list)
+            paths["snps_kinship"], paths["pheno_intersected_fn"], paths["kinship_fn"], args.kmers_table+".names")
     run_and_log_command(cur_cmd, f_log)
     
     ## Transformation of the phenotypes and creating permutations of phenotype
@@ -111,9 +111,9 @@ def main():
     paths["kmers_associations_dir"] = "%s/kmers" % args.outdir # Create relevant directory
     run_and_log_command("mkdir %s" % paths["kmers_associations_dir"], f_log)
 
-    cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --paths_file %s --kmers_table %s --kmer_len %d --maf %f --mac %d"  %\
+    cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --kmers_table %s --kmer_len %d --maf %f --mac %d"  %\
             (paths["assoicte_kmers"], paths["pheno_permuted_transformed_fn"], args.name, 
-                    paths["kmers_associations_dir"], args.n_kmers, args.parallel, args.db_list, 
+                    paths["kmers_associations_dir"], args.n_kmers, args.parallel, 
                     args.kmers_table, args.kmers_len, args.maf, args.mac)
     # Optional parameters for k-mers associations
     if args.kmers_pattern_counter:

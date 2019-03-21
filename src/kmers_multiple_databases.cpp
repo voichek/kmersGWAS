@@ -36,21 +36,18 @@ using namespace std;
 
 ///
 /// @brief  Ctor of MultipleKmersDataBases - 
-/// @param 	DB_paths:	paths in the filesystem to directories containing the files of k-mers
-//		db_names:	a list of names of all the DBs to use (same order as DB_paths)
-//		sorted_kmer_fn:	filename inside each subdirectory containing the sorted k-mer list
+/// @param 	
 /// @return 
 ///
 MultipleKmersDataBases::MultipleKmersDataBases(
-		const string &merge_db_file,
-		const vector<string> &db_names,
+		const string &kmers_table_base,
 		const vector<string> &db_to_use, 	
 		const uint32 &kmer_len):
-	m_db_names_db_file(db_names), // table in file
+	m_db_names_db_file(load_kmers_talbe_column_names(kmers_table_base)), // table in file
 	m_db_names_table(db_to_use), // table in memory
-	m_accessions_db_file(db_names.size()), 
+	m_accessions_db_file(m_db_names_db_file.size()), 
 	m_accessions(db_to_use.size()),
-	m_kmer_table_file(merge_db_file, ios::binary | ios::ate), // ios::ate - put pointer in the end of file
+	m_kmer_table_file(kmers_table_base + string(".table"), ios::binary | ios::ate), // ios::ate - put pointer in the end of file
 	m_hash_words_db_file((m_accessions_db_file+WLEN-1)/WLEN),
 	// Due to the scoring procdure, the array should be a multiplication of 128 (as two words are proccessed
 	// together in the dot product calculation)
@@ -96,7 +93,7 @@ MultipleKmersDataBases::MultipleKmersDataBases(
 		cerr << "We have " << m_kmer_number << endl;
 		create_map_from_all_DBs();
 	} else {
-		throw std::logic_error("Couldn't open kmer table file: " + merge_db_file);
+		throw std::logic_error("Couldn't open kmer table file: " + kmers_table_base + string(".table"));
 	}
 }
 

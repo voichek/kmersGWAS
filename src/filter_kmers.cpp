@@ -48,8 +48,8 @@ pair<vector<uint64_t>, uint32_t> read_and_sort_kmers(const string file_name) {
 }
 
 int main(int argc, char* argv[]) {
-	if(argc != 5) {
-		cerr << "usage: " << argv[0] << " <file with kmers list> <kmers table> <DB file> <output file>" << endl;
+	if(argc != 4) {
+		cerr << "usage: " << argv[0] << " <file with kmers list> <kmers table> <output file>" << endl;
 		return 1;
 	}
 
@@ -60,10 +60,10 @@ int main(int argc, char* argv[]) {
 		cerr << "kmers file is empty" << endl;
 		return 1;
 	}
-	vector<AccessionPath> DB_paths = read_accessions_path_list(argv[3]);
-	uint64_t words_per_kmer = (DB_paths.size() +  WLEN - 1) / WLEN;
+	vector<string> accession_names = load_kmers_talbe_column_names(argv[2]);
+	uint64_t words_per_kmer = (accession_names.size() +  WLEN - 1) / WLEN;
 
-	ifstream table_handle(argv[2], ios::binary | ios::ate);
+	ifstream table_handle(argv[2] + string(".table"), ios::binary | ios::ate);
 	if(table_handle.is_open()) {
 		size_t left_in_file = table_handle.tellg();
 		if(left_in_file <= (4 + 8 + 4)) {
@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
 
 		if(prefix!=0xDDCCBBAA)
 			throw std::logic_error("Incorrect prefix");
-		if(file_accession_number != DB_paths.size() )
+		if(file_accession_number != accession_names.size() )
 			throw std::logic_error("number of accession in file not as defined in class");
 		if(file_kmer_len != kmer_len)
 			throw std::logic_error("kmer length in table and in list are not the same");
@@ -95,14 +95,14 @@ int main(int argc, char* argv[]) {
 		cerr << "We have " << kmer_number << endl;
 
 		// Open output file
-		ofstream fout(argv[4]);
+		ofstream fout(argv[3]);
 		if(!fout.is_open()) {
 			cerr << "can't open output file " << endl;
 			return 1;
 		}
 		fout << "kmer"; // output header
-		for(size_t i=0; i<DB_paths.size(); i++)
-			fout << "\t" << DB_paths[i].name;
+		for(size_t i=0; i<accession_names.size(); i++)
+			fout << "\t" << accession_names[i];
 		fout << "\n";
 
 		// Start reading files
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
 			if(buffer[0] == sorted_kmers[i_kl]) { // if equal
 				fout << bits2kmer31(buffer[0], kmer_len);
 				//output presence/ absence	
-				for(size_t col_index=0; col_index<DB_paths.size(); col_index++) {
+				for(size_t col_index=0; col_index<accession_names.size(); col_index++) {
 					uint64_t new_bit = buffer[(col_index >> 6) + 1] >> (col_index&(WLEN-1))  & 1ull;
 					fout << "\t" << new_bit;
 				}

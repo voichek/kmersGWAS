@@ -29,25 +29,21 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
-	if(argc != 5) {
-		cerr << "usage: " << argv[0] << " <kmers table> <db list> <kmers_len> <MAF>" << endl;
+	if(argc != 4) {
+		cerr << "usage: " << argv[0] << " <kmers table> <kmers_len> <MAF>" << endl;
 		return -1;
 	}
 	string fn_kmers_table(argv[1]);
-	string fn_db_list(argv[2]);
-	size_t kmer_len(atoi(argv[3]));
-	double MAF(atof(argv[4]));
+	size_t kmer_len(atoi(argv[2]));
+	double MAF(atof(argv[3]));
 
-
-	vector<AccessionPath> DB_paths = read_accessions_path_list(fn_db_list);
 
 	MultipleKmersDataBases multiDB(
 			fn_kmers_table,
-			get_DBs_names(DB_paths),
-			get_DBs_names(DB_paths),	
+			load_kmers_talbe_column_names(fn_kmers_table),	
 			kmer_len);
 
-	size_t n_acc = get_DBs_names(DB_paths).size();
+	size_t n_acc = load_kmers_talbe_column_names(fn_kmers_table).size();
 	size_t min_count = ceil(static_cast<double>(n_acc) * MAF);
 	cerr << "Min count = " << min_count << endl;
 	uint64_t n_snps(0);

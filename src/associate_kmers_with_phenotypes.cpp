@@ -47,7 +47,6 @@ int main(int argc, char* argv[])
 			("base_name,b",			po::value<string>(),	"base name to use for all files")
 			("output_dir,o",		po::value<string>()->default_value("."), 
 			 "where to save output files")
-			("paths_file",			po::value<string>(),	"file contatining a list of path for every DB")
 			("kmers_table",			po::value<string>(),	"Presence/absemce k-mer file")
 			("best,n",				po::value<size_t>()->default_value(1000000), 
 			 "Number of best k-mers to report")
@@ -95,9 +94,6 @@ int main(int argc, char* argv[])
 		// This option is for debug perpuses (run only on part of the data)
 		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
 
-		// Load list of accessions in the table (in the same order)
-		vector<AccessionPath> DB_paths = read_accessions_path_list(vm["paths_file"].as<string>());
-
 		// Loading the phenotype (also include the list of needed accessions)
 		pair<vector<string>, vector<PhenotypeList>> phenotypes_info = load_phenotypes_file(
 				vm["phenotype_file"].as<string>());	
@@ -106,7 +102,7 @@ int main(int argc, char* argv[])
 		// Intersect phenotypes only to the present DBs (can also check if all must be present)
 		for(size_t i=0; i<phenotypes_n; i++)
 			phenotypes_info.second[i] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[i], 
-					DB_paths, true);
+					vm["kmers_table"].as<string>(), true);
 		vector<PhenotypeList> p_list{phenotypes_info.second};
 
 		// Create heaps to save all best k-mers & scores
@@ -118,13 +114,12 @@ int main(int argc, char* argv[])
 		if(min_count < mac)
 			min_count = mac;
 		cerr << "Effective minor allele count:\t" << min_count << endl;
-
-		MultipleKmersDataBases kmers_table_for_associations(
-				vm["kmers_table"].as<string>(),	get_DBs_names(DB_paths), p_list[0].first, kmer_length);
-		MultipleKmersDataBases kmers_table_for_output(
-				vm["kmers_table"].as<string>(),	get_DBs_names(DB_paths), p_list[0].first, kmer_length);
-		MultipleKmersDataBases kmers_table_for_gamma_calculation(
-				vm["kmers_table"].as<string>(),	get_DBs_names(DB_paths), p_list[0].first, kmer_length);
+		MultipleKmersDataBases kmers_table_for_associations(vm["kmers_table"].as<string>(),
+				p_list[0].first, kmer_length);
+		MultipleKmersDataBases kmers_table_for_output(vm["kmers_table"].as<string>(),
+				p_list[0].first, kmer_length);
+		MultipleKmersDataBases kmers_table_for_gamma_calculation(vm["kmers_table"].as<string>(),
+				p_list[0].first, kmer_length);
 
 		vector<std::future<void> > tp_results(phenotypes_n);
 		/***************************************************************************************

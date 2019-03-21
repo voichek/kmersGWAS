@@ -69,6 +69,16 @@ vector<AccessionPath> read_accessions_path_list(string filename) {
 	return res;
 }
 
+vector<string> load_kmers_talbe_column_names(const string &kmers_table_base) {
+	ifstream fin(kmers_table_base + string(".names"));
+	vector<string> res;
+	string word;
+	while(fin >> word)
+		res.push_back(word);
+	fin.close();
+	return res;
+}
+
 ///
 /// @brief  filter from a kmer vector only the kmers part of a given set
 /// @param  vector of uint64 representing k-mers and a set of kmers (hash set)
@@ -241,10 +251,10 @@ void write_fam_file(const PhenotypeList &phenotype, const string &fn) {
 	write_fam_file(vector<PhenotypeList>{phenotype}, fn);
 }
 
-size_t get_index_DB(const string &name, const vector<AccessionPath> &DBs) {
+size_t get_index_DB(const string &name, const vector<string> &names) {
 	size_t index = (~0u);
-	for(size_t j=0; j<DBs.size(); j++) {
-		if(DBs[j].name == name) {
+	for(size_t j=0; j<names.size(); j++) {
+		if(names[j] == name) {
 			if(index != (~0u))
 				throw std::logic_error("Two DBs with the same name! " + name);
 			index = j;
@@ -253,10 +263,11 @@ size_t get_index_DB(const string &name, const vector<AccessionPath> &DBs) {
 	return index;
 }
 
-PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const vector<AccessionPath> &DB_paths, const bool &must_be_present) {
+PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const string &kmers_table_base, const bool &must_be_present) {
 	PhenotypeList intersect_pl;
+	vector<string> accessions_names = load_kmers_talbe_column_names(kmers_table_base); 
 	for(size_t i=0; i<pl.first.size(); i++) {
-		size_t index = get_index_DB(pl.first[i], DB_paths);
+		size_t index = get_index_DB(pl.first[i], accessions_names);
 		if(index == (~0u)) { // nothing found
 			if(must_be_present)
 				throw std::logic_error("Couldn't find path for DB: " + pl.first[i]);
@@ -266,25 +277,6 @@ PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const
 		}
 	}
 	return intersect_pl;	
-}
-
-vector<string> get_DBs_paths(const vector<string> &names, const vector<AccessionPath> &DBs) {
-	vector<string> paths;
-	for(size_t i=0; i<names.size(); i++) {
-		size_t index = get_index_DB(names[i], DBs);
-		if(index == (~0u))
-			throw std::logic_error("Couldn't find DB " + names[i]);
-		paths.push_back(DBs[index].path);
-	}
-	return paths;
-}
-
-vector<string> get_DBs_names(const vector<AccessionPath> &DBs) {
-	vector<string> names;
-	for(size_t i=0; i<DBs.size(); i++) {
-		names.push_back(DBs[i].name);
-	}
-	return names;
 }
 
 uint64_t kmers_step_to_threshold(const uint64_t &step, const uint64_t &total_steps, const uint64_t &kmer_length) {

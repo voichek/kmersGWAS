@@ -55,6 +55,8 @@ struct AccessionPath {
 
 typedef std::pair <std::vector<std::string>, std::vector<float> > PhenotypeList;
 
+std::vector<std::string> load_kmers_talbe_column_names(const std::string &kmers_table_base);
+
 // Func: return the full path of a KMD db from its handle
 inline std::string KMC_db_full_path(const AccessionPath &h) { return h.path + "/" + h.name;}
 
@@ -157,13 +159,9 @@ void write_fam_file(const std::vector<PhenotypeList> &phenotypes, const std::str
 
 void write_fam_file(const PhenotypeList &phenotype, const std::string &fn);
 
-std::size_t get_index_DB(const std::string &name, const std::vector<AccessionPath> &DBs);
+std::size_t get_index_DB(const std::string &name, const std::vector<std::string> &names);
 
-PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const std::vector<AccessionPath> &DB_paths, const bool &must_be_present);
-
-std::vector<std::string> get_DBs_paths(const std::vector<std::string> &names, const std::vector<AccessionPath> &DBs);
-
-std::vector<std::string> get_DBs_names(const std::vector<AccessionPath> &DBs);
+PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const std::string &kmers_table_base, const bool &must_be_present);
 
 uint64_t kmers_step_to_threshold(const uint64_t &step, const uint64_t &total_steps, const uint64_t &kmer_length);
 

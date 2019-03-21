@@ -33,29 +33,26 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
-	if(argc != 9) {
-		cerr << "usage: " << argv[0] << " <kmers table> <DB list> <phenotype file> <MAF> <MAC> <max batch size> <kmer_len> <output base name>" << endl;
+	if(argc != 8) {
+		cerr << "usage: " << argv[0] << " <kmers table> <phenotype file> <MAF> <MAC> <max batch size> <kmer_len> <output base name>" << endl;
 		cerr << "\t\tIf there is more than one phenotype in file, take the first one to the fam" << endl;
 		return -1;
 	}
 	
 	// Load parameters
 	string fn_kmers_table(argv[1]);
-	string fn_db_file(argv[2]);
-	string fn_phenotypes(argv[3]);
-	double MAF(atof(argv[4]));
-	size_t MAC(atoi(argv[5]));
-	size_t max_batch_size(atoi(argv[6]));
-	size_t kmer_len(atoi(argv[7]));
-	string output_base(argv[8]);
+	string fn_phenotypes(argv[2]);
+	double MAF(atof(argv[3]));
+	size_t MAC(atoi(argv[4]));
+	size_t max_batch_size(atoi(argv[5]));
+	size_t kmer_len(atoi(argv[6]));
+	string output_base(argv[7]);
 
-	// load DBs files name
-	vector<AccessionPath> DB_paths = read_accessions_path_list(fn_db_file);
 	
 	// load phenotypes (needed for current DBs)
 	pair<vector<string>, vector<PhenotypeList>> phenotypes_file_info = load_phenotypes_file(fn_phenotypes);
 	cerr << "using " << phenotypes_file_info.first[0] << endl;
-	PhenotypeList pheno_info = intersect_phenotypes_to_present_DBs(phenotypes_file_info.second[0], DB_paths, true);
+	PhenotypeList pheno_info = intersect_phenotypes_to_present_DBs(phenotypes_file_info.second[0], fn_kmers_table, true);
 		
 	// calculate effective MAC (if MAF indicate lower number)
 	size_t min_count = ceil(double(pheno_info.first.size())*MAF); // MAF of 5% - maybe should make this parameter external
@@ -65,7 +62,6 @@ int main(int argc, char* argv[]) {
 	// create kmers-multiple dbs file
 	MultipleKmersDataBases multiDB(
 			fn_kmers_table,
-			get_DBs_names(DB_paths),
 			pheno_info.first,
 			kmer_len);
 

@@ -32,8 +32,7 @@
  */
 class MultipleKmersDataBases {
 	public:
-		MultipleKmersDataBases(const std::string &merge_db_file, 
-				const std::vector<std::string> &db_names,
+		MultipleKmersDataBases(const std::string &kmers_table_base, 
 			        const std::vector<std::string> &db_to_use,	
 				const uint32 &kmer_len); // Ctor takes information of the DBs
 		MultipleKmersDataBases() = delete; // no default Ctor

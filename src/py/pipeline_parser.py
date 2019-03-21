@@ -22,13 +22,9 @@ parser.add_argument("--outdir", dest = "outdir", type=str, required=True,
 parser.add_argument("-o", "--out", dest = "name", type=str, default="results",
         help='base name for all output files')
 
-# DBs list
-parser.add_argument("-d", "--db_list", dest = "db_list", type=str, required=True,
-        help='List of DBs')
-
 # k-mers presence/absence table
 parser.add_argument("--kmers_table", dest = "kmers_table", type=str, required=True,
-        help='presence/absence table')
+        help='Base for presence/absence table and accessions list')
 
 # Parallel
 parser.add_argument("-p", "--parallel", dest = "parallel", default=1, type=check_positive, 

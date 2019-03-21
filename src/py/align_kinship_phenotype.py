@@ -61,7 +61,7 @@ def main():
         print "We have %d in the intersection" % len(intersect_acc)
     
     if len(args.db_list) > 0: 
-        intersect_acc = [x for x in intersect_acc if x in get_column(args.db_list, 1)]
+        intersect_acc = [x for x in intersect_acc if x in get_column(args.db_list, 0)]
         if args.verbose:
             print "Intersection also with external list (DBs), left with %d" % len(intersect_acc)
 

@@ -58,8 +58,6 @@ int main(int argc, char* argv[])
 
 		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
 
-		// Load DB paths
-		vector<AccessionPath> DB_paths = read_accessions_path_list(vm["paths_file"].as<string>());
 
 		// Loading the phenotype (also include the list of needed accessions)
 		pair<vector<string>, vector<PhenotypeList>> phenotypes_info = load_phenotypes_file(
@@ -67,13 +65,12 @@ int main(int argc, char* argv[])
 
 		// Intersect phenotypes only to the present DBs (can also check if all must be present)
 		phenotypes_info.second[0] = intersect_phenotypes_to_present_DBs(phenotypes_info.second[0],
-				DB_paths, true);
+			vm["kmers_table"].as<string>(), true);
 		vector<PhenotypeList> p_list{phenotypes_info.second};
 
 		// Load all accessions data to a combine dataset
 		MultipleKmersDataBases multiDB(
 				vm["kmers_table"].as<string>(),
-				get_DBs_names(DB_paths),
 				p_list[0].first, 
 				kmer_length);
 
