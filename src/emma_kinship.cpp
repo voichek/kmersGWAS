@@ -65,6 +65,7 @@ vector<vector<double> > emma_kinship(const string &base_bedbim) {
 	bed_file.ignore(3);
 	
 	vector<vector<double> > K(n_samples, vector<double>(n_samples, 0));
+	size_t n_snps_not_nan(0);
 	for(size_t i=0; i<n_samples; i++)
 		K.at(i).at(i) = 1;
 
@@ -99,29 +100,32 @@ vector<vector<double> > emma_kinship(const string &base_bedbim) {
 			snp_hetro[si] = _dubit_is_hetro[dubit];
 			n_hetroz += _dubit_is_hetro[dubit];
 		}
-		double maf = n_var_allele / n_total; 
-		for(size_t si=0; si<n_samples; ++si) {
-			if(snp_not_miss[si] == 0)
-				snp_calls[si] = maf;
+		if(n_total>0) {
+			n_snps_not_nan++;
+			double maf = n_var_allele / n_total; 
+			for(size_t si=0; si<n_samples; ++si) {
+				if(snp_not_miss[si] == 0)
+					snp_calls[si] = maf;
+			}
+			update_K(K, snp_calls);
+			// Now change hetrozygous to 1
+			n_var_allele += (double)n_hetroz;
+			maf = n_var_allele / n_total;
+			for(size_t si=0; si<n_samples; ++si) {
+				if(snp_not_miss[si] == 0)
+					snp_calls[si] = maf;
+				if(snp_hetro[si] == 1) 
+					snp_calls[si]=1;
+			}
+			update_K(K, snp_calls);
 		}
-		update_K(K, snp_calls);
-		// Now change hetrozygous to 1
-		n_var_allele += (double)n_hetroz;
-		maf = n_var_allele / n_total; 
-		for(size_t si=0; si<n_samples; ++si) {
-			if(snp_not_miss[si] == 0)
-				snp_calls[si] = maf;
-			if(snp_hetro[si] == 1) 
-				snp_calls[si]=1;
-		}
-		update_K(K, snp_calls);
 	}
 	cerr << endl;
 	// close bed file
 	bed_file.close();	
 	for(size_t kr=1; kr<n_samples; ++kr) {
 		for(size_t kc=0; kc<kr; ++kc) {
-			K[kr][kc] /= 2.*(double)n_snps;
+			K[kr][kc] /= 2.*(double)n_snps_not_nan;
 			K[kc][kr] = K[kr][kc];	
 		}
 	}
