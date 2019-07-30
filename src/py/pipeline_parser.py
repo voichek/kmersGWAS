@@ -48,6 +48,10 @@ parser.add_argument("--permutations", dest = "n_permutations", type=int, default
         help='number of permutation for permutation test')
 
 # Run SNPs associations in ONE step - only run GEMMA
+parser.add_argument("--run_on_kmers", dest = "run_kmers", help="run pipeline on k-mers",
+        action="store_true")
+
+# Run SNPs associations in ONE step - only run GEMMA
 parser.add_argument("--run_on_snps_one_step", dest = "run_one_step_snps", help="run pipeline with the same parameters on SNPs",
         action="store_true")
 

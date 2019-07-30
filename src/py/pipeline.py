@@ -87,6 +87,7 @@ def main():
            args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"], 
            paths["EMMA_perm_log_fn"], paths["inverse_covariance_matrix"], paths["log_R_permute"])
     run_and_log_command(cur_cmd, f_log)
+    phenotypes_names = file(paths["pheno_permuted_fn"] ,"r").read().split("\n")[0].split("\t")[1:]
 
     ## handles for all gemma runs (to monitor how many are running)
     gemma_handles = []
@@ -108,41 +109,41 @@ def main():
     ##############################################################################################################
     ########################################      k-mers associations      #######################################
     ##############################################################################################################
-    paths["kmers_associations_dir"] = "%s/kmers" % args.outdir # Create relevant directory
-    run_and_log_command("mkdir %s" % paths["kmers_associations_dir"], f_log)
-
-    cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --kmers_table %s --kmer_len %d --maf %f --mac %d"  %\
-            (paths["assoicte_kmers"], paths["pheno_permuted_transformed_fn"], args.name, 
-                    paths["kmers_associations_dir"], args.n_kmers, args.parallel, 
-                    args.kmers_table, args.kmers_len, args.maf, args.mac)
-    # Optional parameters for k-mers associations
-    if args.kmers_pattern_counter:
-        cur_cmd = cur_cmd + " --pattern_counter"
-    if args.qq_plot:
-        cur_cmd = cur_cmd + " --inv_covariance_matrix " + paths["inverse_covariance_matrix"]
-
-    paths["log_kmers_associations"] = "%s/associate_kmers.log" % (args.outdir)
-    cur_cmd = cur_cmd + " 2> %s" % paths["log_kmers_associations"]
-    run_and_log_command(cur_cmd, f_log)
-
-    ## Run GEMMA on the results from the k-mers associations to get the exact scoring
-    phenotypes_names = file(paths["pheno_permuted_fn"] ,"r").read().split("\n")[0].split("\t")[1:]
-    f_log.writelines("We have %d phenotypes\n" % len(phenotypes_names) )
-    for (p_ind, p_name) in enumerate(phenotypes_names):
-        fam_fn = get_file_type_in_dir(paths["kmers_associations_dir"], "%s.fam" % p_name)
-        ## for all the fam files, move to fam.orig and create a new fam file with the non-transformed phenotype
-        run_and_log_command("mv %s %s.orig" % (fam_fn, fam_fn), f_log) # Saving the original fam (which has transformed values)
-        base_name = fam_fn[:-4]
-        # building the fam file to run gemma
-        cur_cmd = r"""cat %s | tail -n +2 | awk '{print $1 " " $1 " 0 0 0 " $%d}' > %s""" % \
-                (paths["pheno_permuted_fn"], p_ind +2,  fam_fn)
-        run_and_log_command(cur_cmd, f_log)
-        # run gemma on best k-mers
-        cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -maf %f -miss 0.5" % \
-                (args.gemma_path, base_name,  paths["kinship_fn"], \
-                paths["kmers_associations_dir"] + "/output", p_name, affective_maf)
-        run_gemma_cmd(cur_cmd, args.parallel - 1, gemma_handles, f_log)
+    if args.run_kmers:
+        paths["kmers_associations_dir"] = "%s/kmers" % args.outdir # Create relevant directory
+        run_and_log_command("mkdir %s" % paths["kmers_associations_dir"], f_log)
     
+        cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --kmers_table %s --kmer_len %d --maf %f --mac %d"  %\
+                (paths["assoicte_kmers"], paths["pheno_permuted_transformed_fn"], args.name, 
+                        paths["kmers_associations_dir"], args.n_kmers, args.parallel, 
+                        args.kmers_table, args.kmers_len, args.maf, args.mac)
+        # Optional parameters for k-mers associations
+        if args.kmers_pattern_counter:
+            cur_cmd = cur_cmd + " --pattern_counter"
+        if args.qq_plot:
+            cur_cmd = cur_cmd + " --inv_covariance_matrix " + paths["inverse_covariance_matrix"]
+    
+        paths["log_kmers_associations"] = "%s/associate_kmers.log" % (args.outdir)
+        cur_cmd = cur_cmd + " 2> %s" % paths["log_kmers_associations"]
+        run_and_log_command(cur_cmd, f_log)
+    
+        ## Run GEMMA on the results from the k-mers associations to get the exact scoring
+        f_log.writelines("We have %d phenotypes\n" % len(phenotypes_names) )
+        for (p_ind, p_name) in enumerate(phenotypes_names):
+            fam_fn = get_file_type_in_dir(paths["kmers_associations_dir"], "%s.fam" % p_name)
+            ## for all the fam files, move to fam.orig and create a new fam file with the non-transformed phenotype
+            run_and_log_command("mv %s %s.orig" % (fam_fn, fam_fn), f_log) # Saving the original fam (which has transformed values)
+            base_name = fam_fn[:-4]
+            # building the fam file to run gemma
+            cur_cmd = r"""cat %s | tail -n +2 | awk '{print $1 " " $1 " 0 0 0 " $%d}' > %s""" % \
+                    (paths["pheno_permuted_fn"], p_ind +2,  fam_fn)
+            run_and_log_command(cur_cmd, f_log)
+            # run gemma on best k-mers
+            cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -maf %f -miss 0.5" % \
+                    (args.gemma_path, base_name,  paths["kinship_fn"], \
+                    paths["kmers_associations_dir"] + "/output", p_name, affective_maf)
+            run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)
+        
     ##############################################################################################################
     ########################################      SNPs  associations      ########################################
     ##############################################################################################################
@@ -174,12 +175,12 @@ def main():
                 (args.gemma_path, paths["snps_table_fn"], paths["snps_kinship"], \
                 paths["snps_associations_dir"] + "/output", \
                 phenotypes_names[0], 1, affective_maf)
-        run_gemma_cmd(cur_cmd, args.parallel-1, gemma_handles, f_log)
+        run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)
 
         if args.run_two_steps_snps:
-            cur_cmd = "%s %s %s %s %s 0.05 5" % \
+            cur_cmd = "%s %s %s %s %s %f %d" % \
                     (paths["associate_snps"],paths["pheno_permuted_transformed_fn"], args.snps_matrix, \
-                    paths["snps_associations_dir"] + "/" + args.name, args.n_snps)
+                    paths["snps_associations_dir"] + "/" + args.name, args.n_snps, affective_maf, args.mac)
             run_and_log_command(cur_cmd, f_log)
 
             for (p_ind, p_name) in enumerate(phenotypes_names[1:]):
@@ -191,7 +192,7 @@ def main():
                         (args.gemma_path, cur_base_bedbim, paths["snps_kinship"], \
                         paths["snps_associations_dir"] + "/output", \
                         p_name, p_ind+2, affective_maf)
-                run_gemma_cmd(cur_cmd, args.parallel-1, gemma_handles, f_log)
+                run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)
 
         if args.run_one_step_snps:
             for (p_ind, p_name) in enumerate(phenotypes_names[1:]):
@@ -199,7 +200,7 @@ def main():
                         (args.gemma_path, paths["snps_table_fn"], paths["snps_kinship"], \
                         paths["snps_associations_dir"] + "/output", \
                         p_name, p_ind+1, affective_maf)
-                run_gemma_cmd(cur_cmd, args.parallel-1, gemma_handles, f_log)
+                run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)
     
     ##############################################################################################################
     ##################################      Accumulate general statistics      ###################################
@@ -220,26 +221,32 @@ def main():
         run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold_10per" %\
                 (paths["snps_associations_dir"], th_10per, paths["snps_associations_dir"]), f_log)
         
-
-    paths["best kmers pvals"] = paths["kmers_associations_dir"] + "/" + "best_pvals"
-    res = calc_best_pvals(paths["kmers_associations_dir"] + "/output", paths["best kmers pvals"])
-    th_5per = get_threshold_from_perm(res, "P", args.n_permutations, 0.05)
-    th_10per = get_threshold_from_perm(res, "P", args.n_permutations, 0.1)
-    run_and_log_command("echo %f > %s/threshold_5per" % (th_5per, paths["kmers_associations_dir"]),f_log)
-    run_and_log_command("echo %f > %s/threshold_10per" % (th_10per, paths["kmers_associations_dir"]),f_log)
-    run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold_5per" %\
-            (paths["kmers_associations_dir"], th_5per, paths["kmers_associations_dir"]), f_log)
-    run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold_10per" %\
-            (paths["kmers_associations_dir"], th_10per, paths["kmers_associations_dir"]), f_log)
-
+    if args.run_kmers:
+        paths["best kmers pvals"] = paths["kmers_associations_dir"] + "/" + "best_pvals"
+        res = calc_best_pvals(paths["kmers_associations_dir"] + "/output", paths["best kmers pvals"])
+        th_5per = get_threshold_from_perm(res, "P", args.n_permutations, 0.05)
+        th_10per = get_threshold_from_perm(res, "P", args.n_permutations, 0.1)
+        run_and_log_command("echo %f > %s/threshold_5per" % (th_5per, paths["kmers_associations_dir"]),f_log)
+        run_and_log_command("echo %f > %s/threshold_10per" % (th_10per, paths["kmers_associations_dir"]),f_log)
+        run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold_5per" %\
+                (paths["kmers_associations_dir"], th_5per, paths["kmers_associations_dir"]), f_log)
+        run_and_log_command("cat %s/output/phenotype_value.assoc.txt | awk '(-log($9)/log(10)) > %f' > %s/pass_threshold_10per" %\
+                (paths["kmers_associations_dir"], th_10per, paths["kmers_associations_dir"]), f_log)
+    
     ##############################################################################################################
     #######################################   Clean intermediate files   #########################################
     ##############################################################################################################
     if args.remove_intermediate:
         for file_type in ["bed","bim","fam"]:
-            run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],args.name, file_type), f_log)
-            run_and_log_command("rm %s/%s.P*.%s" % (paths["snps_associations_dir"],args.name, file_type), f_log)
-        run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],args.name, "fam.orig"), f_log)
+            if args.run_kmers:
+                run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],args.name, file_type), f_log)
+            if args.run_one_step_snps or args.run_two_steps_snps:
+                run_and_log_command("rm %s/%s.P*.%s" % (paths["snps_associations_dir"],args.name, file_type), f_log)
+        if args.run_one_step_snps or args.run_two_steps_snps:
+            run_and_log_command("rm %s/output/P*" % paths["snps_associations_dir"], f_log)
+            run_and_log_command("gzip %s/output/phenotype_value.assoc.txt"  % paths["snps_associations_dir"], f_log)
+        if args.run_kmers:
+            run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],args.name, "fam.orig"), f_log)
     
     # Close log file
     f_log.close()
