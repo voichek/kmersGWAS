@@ -65,7 +65,13 @@ def main():
 
     ## Information on SNPs dataset
     paths["snps_fam"] = args.snps_matrix + ".fam"
-    paths["snps_kinship"] = args.snps_matrix + ".kinship" 
+    ## Which kinship to use
+    if args.use_kinship_from_kmers:
+        paths["original_kinship_fn"] = args.kmers_tablei + ".kinship"
+        f_log.write("Using kinship calculated on k-mers")
+    else:
+        paths["original_kinship_fn"] = args.snps_matrix + ".kinship"
+        f_log.write("Using kinship calculated on SNPs")
 
     ## Creating kinship matrix specific to used accessions
     paths["pheno_intersected_fn"] = "%s/%s.phenotypes" % (args.outdir, args.name)
@@ -73,9 +79,9 @@ def main():
     cur_cmd = "python2.7 %s --pheno %s --fam_file %s --kinship_file %s --output_pheno  %s " + \
             "--output_kinship %s --DBs_list %s"
     cur_cmd = cur_cmd % (paths["kinship_intersect_script"], paths["pheno_orig_fn"], paths["snps_fam"], 
-            paths["snps_kinship"], paths["pheno_intersected_fn"], paths["kinship_fn"], args.kmers_table+".names")
+            paths["original_kinship_fn"], paths["pheno_intersected_fn"], paths["kinship_fn"], args.kmers_table+".names")
     run_and_log_command(cur_cmd, f_log)
-    
+
     ## Transformation of the phenotypes and creating permutations of phenotype
     paths["pheno_permuted_fn"] = "%s/%s.phenotypes_and_permutations" % (args.outdir, args.name)
     paths["pheno_permuted_transformed_fn"] = "%s/%s.phenotypes_permuted_transformed" % (args.outdir, args.name)
@@ -84,8 +90,8 @@ def main():
     paths["inverse_covariance_matrix"] = "%s/inverse_covariance_matrix" % (args.outdir)
     cur_cmd = "Rscript %s %s %s %d %s %s %s %s > %s"
     cur_cmd = cur_cmd % (paths["Permute_phenotype"] , paths["pheno_intersected_fn"], paths["kinship_fn"],\
-           args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"], 
-           paths["EMMA_perm_log_fn"], paths["inverse_covariance_matrix"], paths["log_R_permute"])
+            args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"], 
+            paths["EMMA_perm_log_fn"], paths["inverse_covariance_matrix"], paths["log_R_permute"])
     run_and_log_command(cur_cmd, f_log)
     phenotypes_names = file(paths["pheno_permuted_fn"] ,"r").read().split("\n")[0].split("\t")[1:]
 
@@ -112,7 +118,7 @@ def main():
     if args.run_kmers:
         paths["kmers_associations_dir"] = "%s/kmers" % args.outdir # Create relevant directory
         run_and_log_command("mkdir %s" % paths["kmers_associations_dir"], f_log)
-    
+
         cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --kmers_table %s --kmer_len %d --maf %f --mac %d"  %\
                 (paths["assoicte_kmers"], paths["pheno_permuted_transformed_fn"], args.name, 
                         paths["kmers_associations_dir"], args.n_kmers, args.parallel, 
@@ -122,11 +128,11 @@ def main():
             cur_cmd = cur_cmd + " --pattern_counter"
         if args.qq_plot:
             cur_cmd = cur_cmd + " --inv_covariance_matrix " + paths["inverse_covariance_matrix"]
-    
+
         paths["log_kmers_associations"] = "%s/associate_kmers.log" % (args.outdir)
         cur_cmd = cur_cmd + " 2> %s" % paths["log_kmers_associations"]
         run_and_log_command(cur_cmd, f_log)
-    
+
         ## Run GEMMA on the results from the k-mers associations to get the exact scoring
         f_log.writelines("We have %d phenotypes\n" % len(phenotypes_names) )
         for (p_ind, p_name) in enumerate(phenotypes_names):
@@ -143,7 +149,7 @@ def main():
                     (args.gemma_path, base_name,  paths["kinship_fn"], \
                     paths["kmers_associations_dir"] + "/output", p_name, affective_maf)
             run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)
-        
+
     ##############################################################################################################
     ########################################      SNPs  associations      ########################################
     ##############################################################################################################
@@ -172,7 +178,7 @@ def main():
         
         # Run GEMMA on the full phenotypes
         cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5" % \
-                (args.gemma_path, paths["snps_table_fn"], paths["snps_kinship"], \
+                (args.gemma_path, paths["snps_table_fn"], paths["original_kinship_fn"], \
                 paths["snps_associations_dir"] + "/output", \
                 phenotypes_names[0], 1, affective_maf)
         run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)
@@ -189,7 +195,7 @@ def main():
                 run_and_log_command("cp %s.fam %s.fam" % (paths["snps_table_fn"], cur_base_bedbim), f_log)
                 # Run GEMMA
                 cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5"  % \
-                        (args.gemma_path, cur_base_bedbim, paths["snps_kinship"], \
+                        (args.gemma_path, cur_base_bedbim, paths["original_kinship_fn"], \
                         paths["snps_associations_dir"] + "/output", \
                         p_name, p_ind+2, affective_maf)
                 run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)
@@ -197,7 +203,7 @@ def main():
         if args.run_one_step_snps:
             for (p_ind, p_name) in enumerate(phenotypes_names[1:]):
                 cur_cmd = "%s -bfile %s -lmm 2 -k %s -outdir %s -o %s -n %d -maf %f -miss 0.5" % \
-                        (args.gemma_path, paths["snps_table_fn"], paths["snps_kinship"], \
+                        (args.gemma_path, paths["snps_table_fn"], paths["original_kinship_fn"], \
                         paths["snps_associations_dir"] + "/output", \
                         p_name, p_ind+1, affective_maf)
                 run_gemma_cmd(cur_cmd, args.parallel, gemma_handles, f_log)

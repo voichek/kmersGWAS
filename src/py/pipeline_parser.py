@@ -47,6 +47,10 @@ parser.add_argument("--snps_number", dest = "n_snps", type=int, default=10001,
 parser.add_argument("--permutations", dest = "n_permutations", type=int, default=0,
         help='number of permutation for permutation test')
 
+# Use kinship matrix from the kmers table
+parser.add_argument("--kinship_kmers", dest = "use_kinship_from_kmers",
+        help="Use the kinship matrix from kmers_table", action="store_true")
+
 # Run SNPs associations in ONE step - only run GEMMA
 parser.add_argument("--run_on_kmers", dest = "run_kmers", help="run pipeline on k-mers",
         action="store_true")
