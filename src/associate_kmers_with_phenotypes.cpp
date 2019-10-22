@@ -50,6 +50,7 @@ int main(int argc, char* argv[])
 			("kmers_table",			po::value<string>(),	"Presence/absemce k-mer file")
 			("best,n",				po::value<size_t>()->default_value(1000000), 
 			 "Number of best k-mers to report")
+			("first_phenotype_best",		po::value<size_t>(),  "if provided will save a different number of k-mers for the first phenotype")
 			("batch_size",			po::value<size_t>()->default_value(10000000), 
 			 "Loading only part of the presence absence info to memory")
 			("parallel",			po::value<size_t>()->default_value(4), 
@@ -106,7 +107,11 @@ int main(int argc, char* argv[])
 		vector<PhenotypeList> p_list{phenotypes_info.second};
 
 		// Create heaps to save all best k-mers & scores
-		vector<BestAssociationsHeap> k_heap(phenotypes_n, BestAssociationsHeap(heap_size)); 
+		vector<BestAssociationsHeap> k_heap;
+		if(vm.count("first_phenotype_best")) { // save a different number of k-mers for the first phenotype
+			k_heap.resize(1, BestAssociationsHeap(vm["first_phenotype_best"].as<size_t>()));
+		} 
+		k_heap.resize(phenotypes_n, BestAssociationsHeap(heap_size));
 
 		// Convert the MAF & MAC to be one parameter => corrected MAC
 		size_t n_accessions = p_list[0].first.size();
