@@ -67,7 +67,7 @@ def main():
     paths["snps_fam"] = args.snps_matrix + ".fam"
     ## Which kinship to use
     if args.use_kinship_from_kmers:
-        paths["original_kinship_fn"] = args.kmers_tablei + ".kinship"
+        paths["original_kinship_fn"] = args.kmers_table + ".kinship"
         f_log.write("Using kinship calculated on k-mers")
     else:
         paths["original_kinship_fn"] = args.snps_matrix + ".kinship"
@@ -128,6 +128,11 @@ def main():
             cur_cmd = cur_cmd + " --pattern_counter"
         if args.qq_plot:
             cur_cmd = cur_cmd + " --inv_covariance_matrix " + paths["inverse_covariance_matrix"]
+        
+        # Optional parameter to save more k-mers in the heap for the phenotype itself (and not the permutation of it)
+        if args.n_extra_phenotype_kmers is not None:
+            f_log.write("Saving a different number ({}) of k-mers in heap for the phenotype itseld\n".format(args.n_extra_phenotype_kmers))
+            cur_cmd = cur_cmd + " --first_phenotype_best " + str(args.n_extra_phenotype_kmers)
 
         paths["log_kmers_associations"] = "%s/associate_kmers.log" % (args.outdir)
         cur_cmd = cur_cmd + " 2> %s" % paths["log_kmers_associations"]
@@ -253,6 +258,8 @@ def main():
             run_and_log_command("gzip %s/output/phenotype_value.assoc.txt"  % paths["snps_associations_dir"], f_log)
         if args.run_kmers:
             run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],args.name, "fam.orig"), f_log)
+            run_and_log_command("rm %s/output/P*" % paths["kmers_associations_dir"], f_log)
+            run_and_log_command("gzip %s/output/phenotype_value.assoc.txt"  % paths["kmers_associations_dir"], f_log)
     
     # Close log file
     f_log.close()

@@ -38,6 +38,10 @@ parser.add_argument("-l", "--kmer_len", dest = "kmers_len", type=int,choices=ran
 parser.add_argument("-k", "--kmers_number", dest = "n_kmers", type=int, default=100001,
         help='Numbers of k-mers to filter from first step (due to bug in GEMMA 0.98 number shouldnt be a multiplication of 20K)')
 
+# number of k-mers to take
+parser.add_argument("--kmers_for_no_perm_phenotype", dest = "n_extra_phenotype_kmers", type=int, 
+        help='Save a different number of k-mers in the heap for the non-permuted phenotype')
+
 # number of snps to take (if a two step method is used)
 parser.add_argument("--snps_number", dest = "n_snps", type=int, default=10001,
         help='Numbers of snps to filter from first step (used only if there using a two step snps approximation)')
@@ -82,7 +86,6 @@ parser.add_argument("--min_data_points", dest = "min_data_points", type=float, d
 
 # SNP files (bed/bim/fam)
 parser.add_argument("--snp_matrix", dest = "snps_matrix", type=str,
-        default = "/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/ArticlePhenotypes/1001G_SNPs_info/1001genomes_snp",
         help='base name for snps bed/bim/fam files')
 
 # Control the verbosity of the program
