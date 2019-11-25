@@ -4,3 +4,6 @@
 [submodule "include/KMC"]
 	path = include/KMC
 	url = https://github.com/refresh-bio/KMC.git
+[submodule "include/cxxopts"]
+	path = include/cxxopts
+	url = https://github.com/jarro2783/cxxopts.git
