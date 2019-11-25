@@ -99,11 +99,10 @@ def main():
     paths["pheno_permuted_transformed_fn"] = "%s/%s.phenotypes_permuted_transformed" % (args.outdir, base_created_files)
     paths["EMMA_perm_log_fn"] = "%s/EMMA_perm.log" % (args.outdir)
     paths["log_R_permute"] =    "%s/phenotypes_transformation_permutation.log" % (args.outdir)
-    paths["inverse_covariance_matrix"] = "%s/inverse_covariance_matrix" % (args.outdir)
-    cur_cmd = "Rscript %s %s %s %d %s %s %s %s > %s"
+    cur_cmd = "Rscript %s %s %s %d %s %s %s > %s"
     cur_cmd = cur_cmd % (paths["Permute_phenotype"] , paths["pheno_intersected_fn"], paths["kinship_fn"],\
             args.n_permutations, paths["pheno_permuted_fn"], paths["pheno_permuted_transformed_fn"], 
-            paths["EMMA_perm_log_fn"], paths["inverse_covariance_matrix"], paths["log_R_permute"])
+            paths["EMMA_perm_log_fn"],  paths["log_R_permute"])
     run_and_log_command(cur_cmd, f_log)
     phenotypes_names = file(paths["pheno_permuted_fn"] ,"r").read().split("\n")[0].split("\t")[1:]
 
