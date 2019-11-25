@@ -2,9 +2,9 @@
 ##       @file  pipeline.py
 ##      @brief  A pipeline to associate phenotype with k-mers and snps
 ## 
-## This script contains the logic of associating a phenotype with k-mers or SNPs
-## and all the organization and follow of parameters between the different programs and
-## scripts used.
+##      This script contains the logic of associating a phenotype with k-mers or SNPs
+##      and all the organization of parameters used in the different programs and
+##      scripts.
 ## 
 ##     @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ## 
@@ -59,14 +59,26 @@ def main():
     f_log = file(paths["log_file"],"w",buffering=1)
     f_log.writelines(str(args))
 
+    base_created_files = "pheno"
     ## Copying the phenotype data to the directory
-    paths["pheno_orig_fn"] = "%s/%s.original_phenotypes" % (args.outdir, args.name)
+    paths["pheno_orig_fn"] = "%s/%s.original_phenotypes" % (args.outdir, base_created_files)
     copy_phenotypes(get_file(args.fn_phenotype), paths["pheno_orig_fn"], paths["average_pheno_script"], f_log)
 
     ## Information on SNPs dataset
-    paths["snps_fam"] = args.snps_matrix + ".fam"
+    if args.snps_matrix is not None:
+        paths["snps_fam"] = args.snps_matrix + ".fam" # we use this to get the order of accessions
+    else: # patch (not secure, should change in the future)
+        # Create a file that will hold the order of the accessions of the kinship matrix from the k-mers
+        paths["snps_fam"] = "%s/%s_for_accessions_order.fam" % (args.outdir, base_created_files)
+        fout = file(paths["snps_fam"], "w")
+        acc_order = [x for x in file(args.kmers_table + ".names", "r").read().split("\n") if len(x)>0]
+        for (i,a) in enumerate(acc_order):
+            fout.write("{0} {0} 0 0 0 -9\n".format(a))
+        fout.close()
+
+    
     ## Which kinship to use
-    if args.use_kinship_from_kmers:
+    if args.use_kinship_from_kmers or (args.snps_matrix is None):
         paths["original_kinship_fn"] = args.kmers_table + ".kinship"
         f_log.write("Using kinship calculated on k-mers")
     else:
@@ -74,8 +86,8 @@ def main():
         f_log.write("Using kinship calculated on SNPs")
 
     ## Creating kinship matrix specific to used accessions
-    paths["pheno_intersected_fn"] = "%s/%s.phenotypes" % (args.outdir, args.name)
-    paths["kinship_fn"] = "%s/%s.kinship" % (args.outdir, args.name)
+    paths["pheno_intersected_fn"] = "%s/%s.phenotypes" % (args.outdir, base_created_files)
+    paths["kinship_fn"] = "%s/%s.kinship" % (args.outdir, base_created_files)
     cur_cmd = "python2.7 %s --pheno %s --fam_file %s --kinship_file %s --output_pheno  %s " + \
             "--output_kinship %s --DBs_list %s"
     cur_cmd = cur_cmd % (paths["kinship_intersect_script"], paths["pheno_orig_fn"], paths["snps_fam"], 
@@ -83,8 +95,8 @@ def main():
     run_and_log_command(cur_cmd, f_log)
 
     ## Transformation of the phenotypes and creating permutations of phenotype
-    paths["pheno_permuted_fn"] = "%s/%s.phenotypes_and_permutations" % (args.outdir, args.name)
-    paths["pheno_permuted_transformed_fn"] = "%s/%s.phenotypes_permuted_transformed" % (args.outdir, args.name)
+    paths["pheno_permuted_fn"] = "%s/%s.phenotypes_and_permutations" % (args.outdir, base_created_files)
+    paths["pheno_permuted_transformed_fn"] = "%s/%s.phenotypes_permuted_transformed" % (args.outdir, base_created_files)
     paths["EMMA_perm_log_fn"] = "%s/EMMA_perm.log" % (args.outdir)
     paths["log_R_permute"] =    "%s/phenotypes_transformation_permutation.log" % (args.outdir)
     paths["inverse_covariance_matrix"] = "%s/inverse_covariance_matrix" % (args.outdir)
@@ -120,14 +132,12 @@ def main():
         run_and_log_command("mkdir %s" % paths["kmers_associations_dir"], f_log)
 
         cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --kmers_table %s --kmer_len %d --maf %f --mac %d"  %\
-                (paths["assoicte_kmers"], paths["pheno_permuted_transformed_fn"], args.name, 
+                (paths["assoicte_kmers"], paths["pheno_permuted_transformed_fn"], base_created_files, 
                         paths["kmers_associations_dir"], args.n_kmers, args.parallel, 
                         args.kmers_table, args.kmers_len, args.maf, args.mac)
         # Optional parameters for k-mers associations
         if args.kmers_pattern_counter:
             cur_cmd = cur_cmd + " --pattern_counter"
-        if args.qq_plot:
-            cur_cmd = cur_cmd + " --inv_covariance_matrix " + paths["inverse_covariance_matrix"]
         
         # Optional parameter to save more k-mers in the heap for the phenotype itself (and not the permutation of it)
         if args.n_extra_phenotype_kmers is not None:
@@ -191,11 +201,11 @@ def main():
         if args.run_two_steps_snps:
             cur_cmd = "%s %s %s %s %s %f %d" % \
                     (paths["associate_snps"],paths["pheno_permuted_transformed_fn"], args.snps_matrix, \
-                    paths["snps_associations_dir"] + "/" + args.name, args.n_snps, affective_maf, args.mac)
+                    paths["snps_associations_dir"] + "/" + base_created_files, args.n_snps, affective_maf, args.mac)
             run_and_log_command(cur_cmd, f_log)
 
             for (p_ind, p_name) in enumerate(phenotypes_names[1:]):
-                cur_base_bedbim = paths["snps_associations_dir"] + "/" + args.name + "." + p_name
+                cur_base_bedbim = paths["snps_associations_dir"] + "/" + base_created_files + "." + p_name
                 # Create the relevan fam file (just link the general one we created)
                 run_and_log_command("cp %s.fam %s.fam" % (paths["snps_table_fn"], cur_base_bedbim), f_log)
                 # Run GEMMA
@@ -250,14 +260,14 @@ def main():
     if args.remove_intermediate:
         for file_type in ["bed","bim","fam"]:
             if args.run_kmers:
-                run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],args.name, file_type), f_log)
+                run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],base_created_files, file_type), f_log)
             if args.run_one_step_snps or args.run_two_steps_snps:
-                run_and_log_command("rm %s/%s.P*.%s" % (paths["snps_associations_dir"],args.name, file_type), f_log)
+                run_and_log_command("rm %s/%s.P*.%s" % (paths["snps_associations_dir"],base_created_files, file_type), f_log)
         if args.run_one_step_snps or args.run_two_steps_snps:
             run_and_log_command("rm %s/output/P*" % paths["snps_associations_dir"], f_log)
             run_and_log_command("gzip %s/output/phenotype_value.assoc.txt"  % paths["snps_associations_dir"], f_log)
         if args.run_kmers:
-            run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],args.name, "fam.orig"), f_log)
+            run_and_log_command("rm %s/%s.*.P*.%s" % (paths["kmers_associations_dir"],base_created_files, "fam.orig"), f_log)
             run_and_log_command("rm %s/output/P*" % paths["kmers_associations_dir"], f_log)
             run_and_log_command("gzip %s/output/phenotype_value.assoc.txt"  % paths["kmers_associations_dir"], f_log)
     
