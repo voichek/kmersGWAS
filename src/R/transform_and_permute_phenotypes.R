@@ -26,9 +26,13 @@ library(methods)
 library(mvnpermute)
 library(matrixcalc)
 
-source('/ebio/abt6/yvoichek/kmers_GWAS/pipeline/src/R/emma.R')
 
+args_for_path <- commandArgs(trailingOnly = FALSE)
 args <- commandArgs(trailingOnly = TRUE)
+# loading emma.R
+script.name <- sub("--file=", "", args_for_path[grep("--file=", args_for_path)])
+path_emma <- file.path(dirname(script.name), "emma.R")
+source(path_emma)
 
 #set.seed(123456789) # To have a reporducible results (for some reason this is still not the same, probably due to different platforms)
 # Load user parameters
@@ -38,7 +42,7 @@ n_permute <- as.numeric(args[3])
 fn_out_phenotypes <- args[4]
 fn_out_trans_phenotypes <- args[5]
 f_log <- file(args[6])
-fn_inv_cov_matrix <- args[7]
+#fn_inv_cov_matrix <- args[7]
 
 
 # 1. Load phenotype file
@@ -62,11 +66,7 @@ null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = 
 herit <- null$vg/(null$vg+null$ve)
 COV_MATRIX <- null$vg*K+null$ve*diag(dim(K)[1])
 CM_inv <- ginv(COV_MATRIX)
-write.table(x= CM_inv, file = fn_inv_cov_matrix, quote=F, sep="\t", row.names=F, col.names = F, eol="\n")
-
-# Calculate gamma
-# gamma <- sum(CM_inv * 
-#                as.matrix(read.csv("/ebio/abt6/yvoichek/1001G_1001T_comparison/code/k_mer_clusters/ArticlePhenotypes/A_thaliana_associations/1001_Consortium_Cell_2016_PID_27293186_FT10/temp.r_gamma2", sep="\t", header=F)))
+#write.table(x= CM_inv, file = fn_inv_cov_matrix, quote=F, sep="\t", row.names=F, col.names = F, eol="\n")
 
 # Logging
 writeLines(c(paste('EMMA_n_permutation','=',n_permute), 
