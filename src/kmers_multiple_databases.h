@@ -1,6 +1,6 @@
 ///
 ///      @file  kmer_multipleDB.h
-///     @brief  Decleration of kmer_multiDB class
+///     @brief  Decleration of MultipleKmersDataBases class
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///

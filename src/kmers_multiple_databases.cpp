@@ -1,8 +1,6 @@
 ///
 ///      @file  kmer_multipleDB.cpp
-///     @brief  
-///
-/// Detailed description starts here.
+///     @brief Implementation of MultipleKmersDataBases class 
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
@@ -90,7 +88,6 @@ MultipleKmersDataBases::MultipleKmersDataBases(
 		if((m_left_in_file % size_per_kmer) != 0)
 			throw std::logic_error("size of file not valid");
 		m_kmer_number = m_left_in_file / size_per_kmer;
-		cerr << "We have " << m_kmer_number << endl;
 		create_map_from_all_DBs();
 	} else {
 		throw std::logic_error("Couldn't open kmer table file: " + kmers_table_base + string(".table"));
