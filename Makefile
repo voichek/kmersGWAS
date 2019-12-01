@@ -18,7 +18,7 @@ OBJ_KMC = $(SRC_CPP_KMC_OBJ:include/KMC/kmc_api/%.cpp=$(BUILD_DIR)/%.o)
 ########################################################################################################
 # Define BIN to be created
 SRC_CPP_BIN = $(filter-out $(SRC_CPP_OBJ),$(wildcard src/*.cpp))
-BIN = $(filter-out associate_kmers_with_phenotypes,$(SRC_CPP_BIN:src/%.cpp=%))
+BIN = $(filter-out associate_kmers,$(SRC_CPP_BIN:src/%.cpp=%))
 ########################################################################################################
 # Define dependencies - Gcc/Clang will create these .d files containing dependencies.
 DEP = $(OBJ:%.o=%.d)
@@ -27,10 +27,10 @@ DEP = $(OBJ:%.o=%.d)
 ########################################################################################################
 # Define rules
 
-all: $(BIN) associate_kmers_with_phenotypes 
+all: $(BIN) associate_kmers
 	@echo "Built everything"
 
-associate_kmers_with_phenotypes : $(OBJ) $(OBJ_KMC)
+associate_kmers: $(OBJ) $(OBJ_KMC)
 	mkdir -p bin
 	@echo $^
 	$(CXX) $(CXX_FLAGS)  $^ src/$(notdir $@).cpp  -o bin/$@ $(LDFLAGS)

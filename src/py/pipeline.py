@@ -29,9 +29,9 @@ paths["base_path"] = "/".join(sys.path[0].split("/")[:-2]) + "/"
 # script with python functionalities
 paths["gen_script"] = paths["base_path"] + "src/py/functions.py"
 # program the associate kmers
-paths["assoicte_kmers"] = paths["base_path"] + "bin/associate_kmers_with_phenotypes"
+paths["assoicate_kmers"] = paths["base_path"] + "bin/associate_kmers"
 # program to associate snps
-paths["associate_snps"] = paths["base_path"] + "bin/associate_snps_with_phenotypes"
+paths["associate_snps"] = paths["base_path"] + "bin/associate_snps"
 # script to permute and transform phenotypes
 paths["Permute_phenotype"] = paths["base_path"] + "src/R/transform_and_permute_phenotypes.R"
 # script to intersect kinship matrix to the current samples
@@ -131,7 +131,7 @@ def main():
         run_and_log_command("mkdir %s" % paths["kmers_associations_dir"], f_log)
 
         cur_cmd = "%s -p %s -b %s -o %s -n %d --parallel %d --kmers_table %s --kmer_len %d --maf %f --mac %d"  %\
-                (paths["assoicte_kmers"], paths["pheno_permuted_transformed_fn"], base_created_files, 
+                (paths["assoicate_kmers"], paths["pheno_permuted_transformed_fn"], base_created_files, 
                         paths["kmers_associations_dir"], args.n_kmers, args.parallel, 
                         args.kmers_table, args.kmers_len, args.maf, args.mac)
         # Optional parameters for k-mers associations
