@@ -1,8 +1,6 @@
 ///
 ///      @file  best_associations_map.h
-///     @brief  
-///
-/// Detailed description starts here.
+///     @brief  Decleration of k-mers heap 
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///

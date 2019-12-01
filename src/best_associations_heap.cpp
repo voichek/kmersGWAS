@@ -1,26 +1,23 @@
-/**
- *       @file  best_associations_map.cpp
- *      @brief  
- *
- * Detailed description starts here.
- *
- *     @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
- *
- *   @internal
- *     Created  11/15/18
- *    Revision  $Id: doxygen.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
- *    Compiler  gcc/g++
- *     Company  Max Planck Institute for Developmental Biology Dep 6
- *   Copyright  Copyright (c) 2018, Yoav Voichek
- *
- * This source code is released for free distribution under the terms of the
- * GNU General Public License as published by the Free Software Foundation.
- * =====================================================================================
- */
-
+///
+///      @file  best_associations_map.cpp
+///     @brief  implementation of k-mers heap 
+///
+///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
+///
+///  @internal
+///    Created  11/15/18
+///   Revision  $Id: doxygen.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
+///   Compiler  gcc/g++
+///    Company  Max Planck Institute for Developmental Biology Dep 6
+///  Copyright  Copyright (c) 2018, Yoav Voichek
+///
+///This source code is released for free distribution under the terms of the
+///GNU General Public License as published by the Free Software Foundation.
+///=====================================================================================
 
 #include "best_associations_heap.h"
 using namespace std;
+
 ///
 /// @brief  Ctor of BestAssociationsHeap initialized the priority queue
 /// @param  what is the maximal number of results to save

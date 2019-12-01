@@ -1,19 +1,19 @@
-/**
- *       @file  kmers_merge_multiple_databaes.cpp
- *      @brief  Implementation of MultipleKmersDataBasesMerger 
- *
- *     @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
- *
- *   @internal
- *     Created  11/15/18
- *    Compiler  gcc/g++
- *     Company  Max Planck Institute for Developmental Biology Dep 6
- *   Copyright  Copyright (c) 2018, Yoav Voichek
- *
- * This source code is released for free distribution under the terms of the
- * GNU General Public License as published by the Free Software Foundation.
- * =====================================================================================
- */
+///
+///      @file  kmers_merge_multiple_databaes.cpp
+///     @brief  Implementation of MultipleKmersDataBasesMerger 
+///
+///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
+///
+///  @internal
+///    Created  11/15/18
+///   Compiler  gcc/g++
+///    Company  Max Planck Institute for Developmental Biology Dep 6
+///  Copyright  Copyright (c) 2018, Yoav Voichek
+///
+///This source code is released for free distribution under the terms of the
+///GNU General Public License as published by the Free Software Foundation.
+///=====================================================================================
+///
 
 #include "kmers_merge_multiple_databaes.h"
 

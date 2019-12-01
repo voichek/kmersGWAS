@@ -1,20 +1,20 @@
-/**
- *       @file  kmers_add_strand_information.cpp
- *      @brief  Take the KMC k-mers counts with and without cononization and add to the k-mers
- *      on which strands there were found
- *
- *     @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
- *
- *   @internal
- *     Created  03/10/19
- *    Compiler  gcc/g++
- *     Company  Max Planck Institute for Developmental Biology Dep 6
- *   Copyright  Copyright (c) 2019, Yoav Voichek
- *
- * This source code is released for free distribution under the terms of the
- * GNU General Public License as published by the Free Software Foundation.
- * =====================================================================================
- */
+///
+///      @file  kmers_add_strand_information.cpp
+///     @brief  Take the KMC k-mers counts with and without cononization and add to the k-mers
+///     on which strands there were found
+///
+///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
+///
+///  @internal
+///    Created  03/10/19
+///   Compiler  gcc/g++
+///    Company  Max Planck Institute for Developmental Biology Dep 6
+///  Copyright  Copyright (c) 2019, Yoav Voichek
+///
+///This source code is released for free distribution under the terms of the
+///GNU General Public License as published by the Free Software Foundation.
+///=====================================================================================
+///
 
 #include "kmer_general.h"
 

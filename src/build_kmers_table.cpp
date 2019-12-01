@@ -1,5 +1,5 @@
 ///
-///      @file  create_kmers_presence_absence_table.cpp 
+///      @file  build_kmers_table.cpp
 ///     @brief  This program will create a table of presence absence accross DBs
 //		
 //		Taking the sorted general kmers list as well as the sorted kmers from 

@@ -1,5 +1,5 @@
 ///
-///      @file  F_correlate_kmers_to_phenotype.cpp
+///      @file  associate_kmers.cpp
 ///     @brief  Loading and correlating phenotype to the presence of k-mers
 ///
 /// We will load a phenotype data and a table of k-mers presence absence.

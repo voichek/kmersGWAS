@@ -1,5 +1,5 @@
 ///
-///      @file  kmer_multipleDB.cpp
+///      @file kmers_multiple_databases.cpp
 ///     @brief Implementation of MultipleKmersDataBases class 
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de

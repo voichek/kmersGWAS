@@ -1,8 +1,6 @@
 ///
-///      @file  F_kmers_count_histogram.cpp
+///      @file  histogram_KMC_kmers_counts.cpp 
 ///     @brief  Create an histogram of k-mers count for KMC DB 
-///
-/// Detailed description starts here.
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///

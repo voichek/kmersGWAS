@@ -1,8 +1,7 @@
 ///
-///      @file  associate_snps_with_phenotypes.cpp
+///      @file  associate_snps.cpp
 ///     @brief  Associate snps with phenotypes and output the best n snps to check with a 
 //	non approximated method
-///
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///

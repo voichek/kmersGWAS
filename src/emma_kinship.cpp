@@ -1,3 +1,21 @@
+///
+///      @file  emma_kinship.cpp
+///     @brief  implementation of kinship calculation from EMMA in C++
+///
+///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
+///
+///  @internal
+///    Created  12/01/19
+///   Revision  $Id: doxygen.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
+///   Compiler  gcc/g++
+///    Company  Max Planck Institute for Developmental Biology Dep 6
+///  Copyright  Copyright (c) 2019, Yoav Voichek
+///
+///This source code is released for free distribution under the terms of the
+///GNU General Public License as published by the Free Software Foundation.
+///=====================================================================================
+///
+
 #include<fstream>
 #include<iostream>
 #include<string>

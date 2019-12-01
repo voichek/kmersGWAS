@@ -1,8 +1,6 @@
 ///
 ///      @file  snps_multiple_databases.h
-///     @brief  
-///
-/// Detailed description starts here.
+///     @brief Decleration of MultipleSNPsDataBases 
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
@@ -17,6 +15,8 @@
 /// GNU General Public License as published by the Free Software Foundation.
 ///=====================================================================================
 ///
+#ifndef SNPS_MULTIDB_H
+#define SNPS_MULTIDB_H
 #include <stdint.h>
 
 #include <string>
@@ -63,3 +63,7 @@ class MultipleSNPsDataBases {
 		double calculate_grammmar_approx_association(const std::vector<float> &phenotypes, 
 				const std::size_t &index, const double &mac) const;
 };
+
+#endif
+
+

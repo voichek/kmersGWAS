@@ -2,7 +2,6 @@
 ///      @file  kmer_general.cpp
 ///     @brief  This file contains general function / parameters needed for all the package
 ///
-///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
 ///  @internal
