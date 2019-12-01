@@ -20,5 +20,8 @@ Details on how to create a k-mers table and how to run GWA can be found in [the 
 
 
 ## Citing
-If you used our library for published work, please cite our work:
-Yoav Voichek and Detlef Weigel (2019). [Finding genetic variants in plants without complete genomes](https://www.biorxiv.org/content/10.1101/818096v2)
+If you used our library for published work, please cite us:
+
+[Finding genetic variants in plants without complete genomes](https://www.biorxiv.org/content/10.1101/818096v2)
+
+Yoav Voichek and Detlef Weigel (2019).
