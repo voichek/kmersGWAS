@@ -1,4 +1,4 @@
-# A library for genome-wide association using *k*-mers
+# A library for genome-wide associations using *k*-mers
 A library for running *k*-mers-based GWAS
 
 Binaries for beta version can be downloaded [from here](https://github.com/voichek/kmersGWAS/releases/download/v0.1-beta/v0_1_beta.zip).
