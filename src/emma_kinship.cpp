@@ -6,7 +6,6 @@
 ///
 ///  @internal
 ///    Created  12/01/19
-///   Revision  $Id: doxygen.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
 ///   Compiler  gcc/g++
 ///    Company  Max Planck Institute for Developmental Biology Dep 6
 ///  Copyright  Copyright (c) 2019, Yoav Voichek

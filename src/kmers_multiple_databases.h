@@ -21,7 +21,6 @@
 #include "kmer_general.h"
 #include "kmers_single_database.h"
 #include "best_associations_heap.h"
-#include "kmers_QQ_plot_statistics.h"
 
 /**
  * @class MultipleKmersDataBases
@@ -61,9 +60,6 @@ class MultipleKmersDataBases {
 
 		void add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, std::vector<float> scores, 
 				const std::size_t &min_cnt) const;
-		
-		void add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, std::vector<float> scores, 
-				const std::size_t &min_cnt, KmersQQPlotStatistics &qq_plot_stats) const;
 
 		void update_presence_absence_pattern_counter(KmersSet &pa_pattern_counter) const;
 		inline const std::vector<std::string> get_dbs_names() 

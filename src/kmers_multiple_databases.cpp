@@ -6,7 +6,6 @@
 ///
 ///  @internal
 ///    Created  07/19/18
-///   Revision  $Id: doxygen.cpp.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
 ///   Compiler  gcc/g++
 ///    Company  Max Planck Institute for Developmental Biology Dep 6
 ///  Copyright  Copyright (c) 2018, Yoav Voichek
@@ -285,16 +284,6 @@ void MultipleKmersDataBases::add_kmers_to_heap(BestAssociationsHeap &kmers_and_s
 }
 
 
-// Also save statistics on the scores, for plotting a QQ plot
-void MultipleKmersDataBases::add_kmers_to_heap(BestAssociationsHeap &kmers_and_scores, vector<float> scores, 
-		const size_t &min_cnt, KmersQQPlotStatistics &qq_plot_stats) const {
-	float sum_scores = update_scores_and_sum(scores);
-	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
-		double current_kmer_stat = calculate_kmer_score(kmer_index, scores, sum_scores,  min_cnt);
-		kmers_and_scores.add_association(m_kmers[kmer_index], current_kmer_stat, m_row_offset + kmer_index);
-		qq_plot_stats.add_score(current_kmer_stat); // saving statistics on qq-plot
-	}
-}
 
 float MultipleKmersDataBases::update_scores_and_sum(vector<float> &scores) const {
 	scores.resize(m_hash_words*sizeof(uint64_t)*8, 0); 

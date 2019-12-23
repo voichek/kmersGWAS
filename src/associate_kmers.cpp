@@ -2,9 +2,9 @@
 ///      @file  associate_kmers.cpp
 ///     @brief  Loading and correlating phenotype to the presence of k-mers
 ///
-/// We will load a phenotype data and a table of k-mers presence absence.
-/// The program will output the interesting k-mers as well as their presence-absence
-/// information to output files.
+/// 	We will load a phenotype data and a table of k-mers presence absence.
+/// 	The program will output the interesting k-mers as well as their presence-absence
+/// 	information to output files.
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
@@ -22,7 +22,6 @@
 #include "kmer_general.h"
 #include "kmers_multiple_databases.h"
 #include "best_associations_heap.h"
-#include "kmers_QQ_plot_statistics.h"
 
 #include <sys/sysinfo.h> // To monitor memory usage
 #include <iostream>
@@ -64,11 +63,7 @@ int main(int argc, char* argv[])
 			("k_mers_scores", "output the best k_mers scores in binary format")
 			("debug_option_batches_to_run",			po::value<uint64_t>()->default_value(NULL_KEY), 
 			 "Change to run only on part of the table")
-			("gamma",			po::value<double>(), 
-			 "The gamma factor from GRAMMAR-Gamma of the first phenotype, if given program will accumelate statistics for QQ plot")
 			("pattern_counter", "Count the number of unique presence/absence patterns")
-			("inv_covariance_matrix",			po::value<string>(),
-			 "To calculate Gamma we need to use the covariance matrix (if given the program will calculate Gamma)")
 			;
 
 		/* parse the command line */
@@ -123,43 +118,10 @@ int main(int argc, char* argv[])
 				p_list[0].first, kmer_length);
 		MultipleKmersDataBases kmers_table_for_output(vm["kmers_table"].as<string>(),
 				p_list[0].first, kmer_length);
-		MultipleKmersDataBases kmers_table_for_gamma_calculation(vm["kmers_table"].as<string>(),
-				p_list[0].first, kmer_length);
 
 		vector<std::future<void> > tp_results(phenotypes_n);
 		/***************************************************************************************
 		 * Statistics to be collected during the association - here we define what to collect  */
-		// the Gamma normalization factor of the GRAMMAR-Gamma method is needed to calculate p-value
-		// from the statistics (needed here for the qq-plot). Gamma can be:
-		// 1. Given by the user
-		// 2. Calculated by the program (if the neccesary information is given)
-		// 3. No QQ-plot calculation will be done
-		double gamma;
-		bool calculate_gamma = false;
-		bool run_with_gamma = false;
-		std::future<double> gamma_calc_fut;
-
-		if(vm.count("gamma")) {// 1. Gamma is given by the user
-			gamma = vm["gamma"].as<double>();
-			run_with_gamma = true;
-		}
-		if(vm.count("inv_covariance_matrix")) {
-			if(vm.count("gamma")) {
-				cerr << "Can't input both a gamma value and a covariance matrix" << endl;
-				return 1;
-			}
-			run_with_gamma=true;
-			calculate_gamma=true;
-			// Calculate Gamma on a part of the data (will run this in the background)
-			string fn_inv_cov_mat = vm["inv_covariance_matrix"].as<string>(); // defined only in this scoop!!! 
-			// (if pass in parallel by reference will be overwritten and won't exist in the other thread)
-			gamma_calc_fut = tp.push([fn_inv_cov_mat, &kmers_table_for_gamma_calculation, min_count](double){
-					return calc_gamma(fn_inv_cov_mat, kmers_table_for_gamma_calculation, min_count);});
-
-		}
-
-		// Create the qq_stats container (the gamma can be changed in later stages)
-		KmersQQPlotStatistics qq_stats;
 		// Count unique presence absence patterns
 		std::future<void> pattern_counter_fut;
 		KmersSet pa_patterns_counter(1);
@@ -183,13 +145,8 @@ int main(int argc, char* argv[])
 						kmers_table_for_associations.update_presence_absence_pattern_counter(pa_patterns_counter);});
 
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each sample 
-				if((j==0) && (run_with_gamma)) {
-					tp_results[j] = tp.push([&kmers_table_for_associations,&k_heap,&p_list,j,min_count, &qq_stats](int){
-							kmers_table_for_associations.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count, qq_stats);});
-				} else {
-					tp_results[j] = tp.push([&kmers_table_for_associations,&k_heap,&p_list,j,min_count](int){
-							kmers_table_for_associations.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
-				}
+				tp_results[j] = tp.push([&kmers_table_for_associations,&k_heap,&p_list,j,min_count](int){
+						kmers_table_for_associations.add_kmers_to_heap(k_heap[j], p_list[j].second, min_count);});
 			}
 			for(size_t j=0; j<(phenotypes_n); j++) {
 				tp_results[j].get();
@@ -202,11 +159,9 @@ int main(int argc, char* argv[])
 				"min," << get_mem_used_by_process() << "MB)" << endl; t0 = get_time();
 			batch_index++;
 		}
-		if(vm.count("gamma"))
-			cerr << "Total insertions\t" << qq_stats.total_insertions() << endl;
 		if(vm.count("pattern_counter"))
 			cerr << "Total patterns\t" << pa_patterns_counter.size() << endl;
-		
+
 		/****************************************************************************************************
 		 *	save best k-mers to files and create list of k-mers from heaps (and clear heaps)	
 		 ***************************************************************************************************/
@@ -233,7 +188,7 @@ int main(int argc, char* argv[])
 			write_fam_file(p_list[j], fn_base + "." + std::to_string(j) + "." + phenotypes_info.first[j] 
 					+ ".fam");
 		}
-		
+
 		// Reload k-mers to create plink bed/bim files
 		batch_index = 0;
 		while(kmers_table_for_output.load_kmers(batch_size, min_count) 
@@ -252,27 +207,11 @@ int main(int argc, char* argv[])
 		// close all bed & bim plink files & (specific fam?)
 		for(size_t j=0; j<plink_output.size(); j++)
 			plink_output[j].close();
-		
+
 		if(vm.count("pattern_counter")) {
 			ofstream fout(fn_base + ".pattern_counter");
 			fout <<   pa_patterns_counter.size() << endl; 
 			fout.close();
-		}
-		if(run_with_gamma) {
-			cerr << "Write to file the QQ plot information" << endl;
-			if(calculate_gamma) {
-				cerr << "Wait for Gamma calculation" << endl;
-				gamma = gamma_calc_fut.get(); //Calculating Gamma in the background since the program started
-			}
-			ofstream fout(fn_base + ".gamma");
-			fout << gamma << endl;
-			fout.close();
-			if(vm.count("pattern_counter")) 
-				qq_stats.print_stats_to_file_norm_unique_tests(fn_base +  ".qq_plot_stats.n", 
-						gamma, n_accessions, pa_patterns_counter.size());
-			else
-				qq_stats.print_stats_to_file(fn_base +  ".qq_plot_stats", gamma, n_accessions);
-
 		}
 		// Output to file the number of tested k-mers
 		ofstream fout(fn_base + ".tested_kmers");

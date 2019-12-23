@@ -308,3 +308,15 @@ uint64_t kmer2bits(string k) {
 	else
 		return b;
 }
+
+bool is_file_exist(const char *fileName)
+{
+	std::ifstream infile(fileName);
+	return infile.good();
+}
+
+bool is_file_exist(const string &fileName)
+{
+	std::ifstream infile(fileName);
+	return infile.good();
+}

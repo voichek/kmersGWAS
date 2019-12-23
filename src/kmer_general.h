@@ -146,12 +146,8 @@ struct BedBimFilesHandle {
 	std::ofstream f_bim;
 };
 
-
 // Permuting the order of the phenotypes for the implementation of the scoring
 void permute_scores(std::vector<float> &V);  // assume V is a multiplication of 128
-
-
-
 
 std::pair<std::vector<std::string>, std::vector<PhenotypeList>> load_phenotypes_file(const std::string &filename);
 
@@ -165,6 +161,10 @@ PhenotypeList intersect_phenotypes_to_present_DBs(const PhenotypeList &pl, const
 
 uint64_t kmers_step_to_threshold(const uint64_t &step, const uint64_t &total_steps, const uint64_t &kmer_length);
 
-uint64_t kmer2bits(std::string k);	
+uint64_t kmer2bits(std::string k);
+
+bool is_file_exist(const char *fileName);
+bool is_file_exist(const std::string &filneName);
+
 #endif
 

@@ -2,14 +2,13 @@
 ///      @file  emma_kinship_kmers.cpp
 ///     @brief  calculate a kinship matrix from the presence/absence of k-mers
 ///
-/// Using the presence / absence pattern of the k-mers we will calculate a relatedness matrix
-/// using the same calculation as the EMMA.kinship one
+/// 	Using the presence / absence pattern of the k-mers we will calculate a relatedness matrix
+/// 	using the same calculation as the EMMA.kinship one
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
 ///  @internal
 ///    Created  12/23/18
-///   Revision  $Id: doxygen.cpp.templates,v 1.3 2010/07/06 09:20:12 mehner Exp $
 ///   Compiler  gcc/g++
 ///    Company  Max Planck Institute for Developmental Biology Dep 6
 ///  Copyright  Copyright (c) 2018, Yoav Voichek

@@ -2,12 +2,12 @@
 ///      @file  kmers_table_to_bed.cpp
 ///     @brief  Take a kmers table and convert it to bed/bim file(s)
 ///
-/// In some case we would like to run the full kmers presence/absence information in the exact
-/// LMM method of choice (e.g. GEMMA). For this purpose we need to convert the kmers table to 
-/// bed/bim/fam format, which is the purpose of this code. To save space, we will filter the 
-/// kmers to have the wanted minor allele frequency / count (MAF, MAC) before outputing them.
-/// Moreover, we will also filter kmers which have the same exact presence/absence pattern.
-/// This will be done to reduce the computational load on the next step (e.g. GEMMA).
+/// 	In some case we would like to run the full kmers presence/absence information in the exact
+/// 	LMM method of choice (e.g. GEMMA). For this purpose we need to convert the kmers table to 
+/// 	bed/bim/fam format, which is the purpose of this code. To save space, we will filter the 
+/// 	kmers to have the wanted minor allele frequency / count (MAF, MAC) before outputing them.
+/// 	Moreover, we will also filter kmers which have the same exact presence/absence pattern.
+/// 	This will be done to reduce the computational load on the next step (e.g. GEMMA).
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///
@@ -85,11 +85,7 @@ int main(int argc, char* argv[]) {
 			min_count = MAC;
 
 		// create kmers-multiple dbs file
-		MultipleKmersDataBases multiDB(
-				fn_kmers_table,
-				pheno_info.first,
-				kmer_len);
-
+		MultipleKmersDataBases multiDB(fn_kmers_table, pheno_info.first, kmer_len);
 
 		// create presence/absence pattern counter (initialize with 100M)
 		KmersSet pa_patterns_counter(1000*1000*100); 
