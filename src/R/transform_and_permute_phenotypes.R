@@ -12,25 +12,18 @@
 # The transformation of the phenotype will be done using code extracted from the GenABEL package. This package is
 # not supported anymore - we will take out the code so we can support it in the future.
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Regarding relatedness matrix - I am not sure if it matters how I create it from the SNPs file. I tried to 
-# create it with the rvtests which also have a Grammar-Gamma implementation, and I got results similiar to the 
-# GEMMA kinship matrix, but not exactly the same, and also there was a factor 10 between the two. For now, as not
-# to support too much code, and as I would use GEMMA in the next stage for correct p-values, I will use the kinship
-# matrix created by GEMMA.
-# But to keep the units I will divide by 10 to have the same scaling
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
 # Set environment:
 rm(list = ls())
 
 # Check if all needed packages are installed and if not install them
-list.of.packages <- c("MASS", "methods","mvnpermute","matrixcalc")
+list.of.packages <- c("MASS","mvnpermute","matrixcalc")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 
-library(MASS)
-library(methods)
-library(mvnpermute)
-library(matrixcalc)
+library(MASS) #ginv
+library(mvnpermute) #mvnpermute
+library(matrixcalc) #is.positive.semi.definite
 
 
 args_for_path <- commandArgs(trailingOnly = FALSE)
@@ -40,7 +33,6 @@ script.name <- sub("--file=", "", args_for_path[grep("--file=", args_for_path)])
 path_emma <- file.path(dirname(script.name), "emma.R")
 source(path_emma)
 
-#set.seed(123456789) # To have a reporducible results (for some reason this is still not the same, probably due to different platforms)
 # Load user parameters
 fn_phenotypes <- args[1]
 fn_kinship <- args[2]
@@ -48,8 +40,6 @@ n_permute <- as.numeric(args[3])
 fn_out_phenotypes <- args[4]
 fn_out_trans_phenotypes <- args[5]
 f_log <- file(args[6])
-#fn_inv_cov_matrix <- args[7]
-
 
 # 1. Load phenotype file
 phenotypes <- read.csv(fn_phenotypes,sep='\t',header=TRUE)
@@ -58,8 +48,7 @@ phenotypes$phenotype_value <- phenotypes$phenotype_value-av_pheno
 n_acc = nrow(phenotypes)
 
 # 2. Load kinship matrix
-K <- read.csv(fn_kinship, sep='\t',header =FALSE)
-K <- as.matrix(K)
+K <- as.matrix(read.csv(fn_kinship, sep='\t',header=FALSE))
 
 # Check matrix is positive semi-definite
 if(!is.positive.semi.definite(K)) {
@@ -72,7 +61,6 @@ null <- emma.REMLE(phenotypes$phenotype_value,as.matrix(x = rep(1, n_acc),dim = 
 herit <- null$vg/(null$vg+null$ve)
 COV_MATRIX <- null$vg*K+null$ve*diag(dim(K)[1])
 CM_inv <- ginv(COV_MATRIX)
-#write.table(x= CM_inv, file = fn_inv_cov_matrix, quote=F, sep="\t", row.names=F, col.names = F, eol="\n")
 
 # Logging
 writeLines(c(paste('EMMA_n_permutation','=',n_permute), 
@@ -96,8 +84,5 @@ for(i in 2:(n_permute+2)) {
 }
 
 # 6. Output phenotype information
-# Output phenotypes before and after transformation (4+)5
 write.table(x=phenotypes, file=fn_out_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
-# options(scipen=20)
 write.table(x=trans_phenotypes, file=fn_out_trans_phenotypes, eol = "\n",sep = "\t", quote=F, row.names = FALSE)
-# options(scipen=0)  # restore the default
