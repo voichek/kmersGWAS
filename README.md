@@ -12,9 +12,9 @@ Details on how to create a k-mers table and how to run GWA can be found in [the 
 + **kmers_add_strand_information** - Create k-mers list from KMC output
 + **list_kmers_found_in_multiple_samples** - Create a list of k-mers to use in the k-mers table
 + **build_kmers_table** - Build the k-mers table 
-#### other:
+#### Other functionalities:
 + **kmers_table_to_bed** - Convert the k-mers table to PLINK binary format
-+ **filter_kmers** - Output the presence/absence patterns of a set of k-mers
++ **filter_kmers** - Textual output the presence/absence patterns of a set of k-mers
 + **emma_kinship_kmers** - Calculate the kinship matrix from PLINK binary format
 + **emma_kinship** - Calcualte the kinship matrix of the k-mers table
 
