@@ -84,6 +84,11 @@ int main(int argc, char* argv[])
 		ctpl::thread_pool tp(vm["parallel"].as<size_t>()); // How many threads can we use
 
 		uint32_t kmer_length = vm["kmer_len"].as<uint32_t>(); // length of k-mers in table
+		if((kmer_length > 31) || (kmer_length <10)) {
+			cerr << "kmer length has to be between 10-31" << endl;
+			exit(1);
+		}
+
 		double maf = vm["maf"].as<double>(); // Minor allele frequency
 		size_t mac = vm["mac"].as<size_t>(); // Minor allele count
 
