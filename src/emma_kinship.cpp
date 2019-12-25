@@ -1,6 +1,8 @@
 ///
 ///      @file  emma_kinship.cpp
-///     @brief  implementation of kinship calculation from EMMA in C++
+///     @brief  implementation of kinship calculation from EMMA in C++ (with default parameters)
+///	
+///		This in not  part of the k-mers GWAS library, and can be reomved.
 ///
 ///    @author  Yoav Voichek (YV), yoav.voichek@tuebingen.mpg.de
 ///

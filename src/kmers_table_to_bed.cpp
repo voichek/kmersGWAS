@@ -40,26 +40,26 @@ int main(int argc, char* argv[]) {
 	{
 		options.add_options()
 			("t,kmers_table", "k-mers table path", cxxopts::value<string>())
-			("k,kmers_len", "Length of k-mers", cxxopts::value<size_t>())
+			("k,kmers_len", "length of k-mers", cxxopts::value<size_t>())
 			("p,phentype_file", "phenotype file, condense output only to individuals with a phenotype", cxxopts::value<string>())
-			("maf", "Minor allele frequency", cxxopts::value<double>())
-			("mac", "Minor allele count", cxxopts::value<size_t>())
-			("b,batch_size", "Maximal number of variants in each PLINK bed file (seperate to many file  if needed)", cxxopts::value<size_t>())
-			("o,output", "Prefix for output files", cxxopts::value<string>())
-			("u,unique_patterns", "Output only unique presence/absence patterns", cxxopts::value<bool>()->default_value("false"))
+			("maf", "minor allele frequency", cxxopts::value<double>())
+			("mac", "minor allele count", cxxopts::value<size_t>())
+			("b,batch_size", "maximal number of variants in each PLINK bed file (seperate to many file  if needed)", cxxopts::value<size_t>())
+			("o,output", "prefix for output files", cxxopts::value<string>())
+			("u,unique_patterns", "output only unique presence/absence patterns", cxxopts::value<bool>()->default_value("false"))
 			("help", "print help")
 			;
 		auto result = options.parse(argc, argv);
 		if (result.count("help"))
 		{
-			cout << options.help() << endl;
+			cerr << options.help() << endl;
 			exit(0);
 		}
 		vector<string> required_parametrs({"kmers_table", "kmers_len", "phentype_file", "maf", "mac", "batch_size", "output"});
 		for(size_t i=0; i<required_parametrs.size(); i++) {
 			if(result.count(required_parametrs[i]) == 0) {
-				cout << required_parametrs[i] << " is a required parameter" << endl;
-				cout << options.help() << endl;
+				cerr << required_parametrs[i] << " is a required parameter" << endl;
+				cerr << options.help() << endl;
 				exit(1);
 			}
 		}
@@ -73,7 +73,18 @@ int main(int argc, char* argv[]) {
 		string output_base(result["output"].as<string>());
 		
 		bool unique_patterns(result["unique_patterns"].as<bool>());
-
+		// Check if all input files exist
+		vector<string> required_files({fn_kmers_table+".names",fn_kmers_table+".table",fn_phenotypes});
+		for(size_t i=0; i<required_files.size(); i++) {
+			if(!is_file_exist(required_files[i])) {
+				cerr << "Couldn't find file: " << required_files[i] << endl;
+				exit(1);
+			}
+		}
+		/****************************************************************************************************/
+		/* END of parsing and checking input parameters */
+		/****************************************************************************************************/
+		
 		// load phenotypes (needed for current DBs)
 		pair<vector<string>, vector<PhenotypeList>> phenotypes_file_info = load_phenotypes_file(fn_phenotypes);
 		cerr << "using " << phenotypes_file_info.first[0] << endl;
@@ -114,8 +125,8 @@ int main(int argc, char* argv[]) {
 		}	
 	} catch (const cxxopts::OptionException& e)
 	{
-		cout << "error parsing options: " << e.what() << endl;
-		cout << options.help() << endl;
+		cerr << "error parsing options: " << e.what() << endl;
+		cerr << options.help() << endl;
 		exit(1);
 	}
 	return 0;
