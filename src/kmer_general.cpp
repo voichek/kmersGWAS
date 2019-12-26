@@ -24,32 +24,6 @@
 
 using namespace std;
 
-int get_mem_used_by_process_parseLine(char* line){
-	// This assumes that a digit will be found and the line ends in " Kb".
-	int i = strlen(line);
-	const char* p = line;
-	while (*p <'0' || *p > '9') p++;
-	line[i-3] = '\0';
-	i = atoi(p);
-	return i;
-}
-
-double get_mem_used_by_process(){ //Note: this value is in MB!
-	FILE* file = fopen("/proc/self/status", "r");
-	int result = -1;
-	char line[128];
-
-	while (fgets(line, 128, file) != NULL){
-		if (strncmp(line, "VmSize:", 7) == 0){
-			result = get_mem_used_by_process_parseLine(line);
-			break;
-		}
-	}
-	fclose(file);
-	return (double)result/1024.;
-}
-
-
 /**
  * @brief   Read a list of k-mer DBS (DB name, DB path)
  * @param   filename path

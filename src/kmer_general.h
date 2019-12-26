@@ -24,8 +24,6 @@
 #define WLEN 64
 #define NULL_KEY 0xFFFFFFFFFFFFFFFF
 
-double get_mem_used_by_process(); // Daignostic tool
-
 /**
  * @brief   Hash function for 64 bit
  * @param   get a 64 bit unsigned long long

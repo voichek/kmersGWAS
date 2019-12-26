@@ -23,7 +23,6 @@
 #include "kmers_multiple_databases.h"
 #include "best_associations_heap.h"
 
-#include <sys/sysinfo.h> // To monitor memory usage
 #include <iostream>
 #include <utility> //std::pair
 
@@ -142,8 +141,8 @@ int main(int argc, char* argv[])
 				&& (batch_index < debug_option_batches_to_run)) {
 
 			// status information
-			t1 = get_time();cerr << "Load [" <<  batch_index << "]\t(" << (double)(t1-t0)/(60.) << 
-				"min," << get_mem_used_by_process() << "MB)" << endl; t0 = get_time();
+			t1 = get_time();cerr << "Load [" <<  batch_index << "]\t" << (double)(t1-t0)/(60.) << 
+				"min" << endl; t0 = get_time();
 
 			if(vm.count("pattern_counter")) // If count patterns is on
 				pattern_counter_fut = tp.push([&kmers_table_for_associations,&pa_patterns_counter](int){
@@ -160,8 +159,8 @@ int main(int argc, char* argv[])
 			if(vm.count("pattern_counter"))
 				pattern_counter_fut.get();
 
-			t1 = get_time();cerr << "Associations [" <<  batch_index << "]\t(" << (double)(t1-t0)/(60.) << 
-				"min," << get_mem_used_by_process() << "MB)" << endl; t0 = get_time();
+			t1 = get_time();cerr << "Associations [" <<  batch_index << "]\t" << (double)(t1-t0)/(60.) << 
+				"min" << endl; t0 = get_time();
 			batch_index++;
 		}
 		if(vm.count("pattern_counter"))
@@ -181,7 +180,6 @@ int main(int argc, char* argv[])
 			best_kmers.push_back(k_heap[j].get_kmers_for_output(kmer_length));
 			k_heap[j].empty_heap(); // clear heap
 		}
-		cerr << "RAM in use:\t" << get_mem_used_by_process() << endl;
 
 		/****************************************************************************************************
 		 *	Reload all k-mers and out to plink files only the best k-mers found in the previous stage
@@ -198,7 +196,7 @@ int main(int argc, char* argv[])
 		batch_index = 0;
 		while(kmers_table_for_output.load_kmers(batch_size, min_count) 
 				&& (batch_index<debug_option_batches_to_run)) {
-			cerr << "Save [" <<  batch_index << "]\t(" << get_mem_used_by_process() << "MB)" << endl;
+			cerr << "Save [" <<  batch_index << "]" << endl;
 			for(size_t j=0; j<(phenotypes_n); j++) { // Check association for each samples  
 				best_kmers[j].next_index = 
 					kmers_table_for_output.output_plink_bed_file(plink_output[j], 
