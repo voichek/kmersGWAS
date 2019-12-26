@@ -1,5 +1,5 @@
 ## 
-##       @file  pipeline.py
+##       @file  kmers_gwas.py
 ##      @brief  A pipeline to associate phenotype with k-mers and snps
 ## 
 ##      This script contains the logic of associating a phenotype with k-mers or SNPs
@@ -25,7 +25,7 @@ import sys
 ## Save all the relevant directories and files in one dictionary
 paths = {}
 # scripts/ programs prefix
-paths["base_path"] = "/".join(sys.path[0].split("/")[:-2]) + "/"
+paths["base_path"] = sys.path[0] + "/"
 # script with python functionalities
 paths["gen_script"] = paths["base_path"] + "src/py/functions.py"
 # program the associate kmers
@@ -50,7 +50,7 @@ execfile(paths["parser_script"])
 def main():
     ## Read and parse user defined parameters
     args = parser.parse_args()
-
+    
     ## Creating the directory to work in
     create_dir(args.outdir)
 

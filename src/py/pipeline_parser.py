@@ -1,4 +1,5 @@
 import argparse # Needs python2.7+
+import sys
 
 def check_positive(value):
     "Check if a variable entered to argparse is positive"
@@ -31,7 +32,7 @@ parser.add_argument("-p", "--parallel", dest = "parallel", default=1, type=check
         help='maximal number of threads')
 
 # number of k-mers to take (notice: GEMMA 0.98 had a bug which didn't work with variant number which are multiplies of 20K)
-parser.add_argument("-k", "--kmers_number", dest = "n_kmers", type=int, default=100001,
+parser.add_argument("-k", "--kmers_number", dest = "n_kmers", type=int, default=10001,
         help='numbers of k-mers to filter from first step') 
 
 # number of k-mers to take
@@ -40,7 +41,7 @@ parser.add_argument("--kmers_for_no_perm_phenotype", dest = "n_extra_phenotype_k
 
 # Number of permutation
 parser.add_argument("--permutations", dest = "n_permutations", type=int, default=100,
-        help='number of permutation for permutation test')
+        help='number of permutation for defining the threshold (should be at least 20)')
 
 ## MAF (for k-mers and also for SNPs if used)
 parser.add_argument("--maf", dest = "maf", type=float, default=0.05,
@@ -90,7 +91,8 @@ parser.add_argument("--dont_remove_intermediates", dest = "remove_intermediate",
         help="for debugging, keep the intermediate files", action="store_false")
 
 # path for GEMMA
-parser.add_argument("--gemma_path", dest = "gemma_path", type=str, required=True,
+parser.add_argument("--gemma_path", dest = "gemma_path", type=str,
+        default = sys.path[0] + "/external_programs/gemma_0_96",
         help='path to GEMMA (tested with version 0.96)')
 
 args = parser.parse_args()
