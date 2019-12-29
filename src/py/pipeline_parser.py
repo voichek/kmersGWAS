@@ -24,7 +24,7 @@ parser.add_argument("--kmers_table", dest = "kmers_table", type=str, required=Tr
         help='path to the k-mers table')
 
 # k-mer length
-parser.add_argument("-l", "--kmer_len", dest = "kmers_len", type=int,choices=range(15,32), metavar="[15-31]", 
+parser.add_argument("-l", "--kmer_len", dest = "kmers_len", type=int,choices=range(15,32), metavar="[15-31]",required=True, 
         help='length of the k-mers')
 
 # Parallel
