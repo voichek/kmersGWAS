@@ -33,15 +33,15 @@ parser.add_argument("-p", "--parallel", dest = "parallel", default=1, type=check
 
 # number of k-mers to take (notice: GEMMA 0.98 had a bug which didn't work with variant number which are multiplies of 20K)
 parser.add_argument("-k", "--kmers_number", dest = "n_kmers", type=int, default=10001,
-        help='numbers of k-mers to filter from first step') 
+        help='number of k-mers to filter from first step') 
 
 # number of k-mers to take
 parser.add_argument("--kmers_for_no_perm_phenotype", dest = "n_extra_phenotype_kmers", type=int, 
-        help='number of k-mers to filter from first step for the non-permuted phenotype (if different)')
+        help='number of k-mers to filter only from first step for the non-permuted phenotype (if different)')
 
 # Number of permutation
 parser.add_argument("--permutations", dest = "n_permutations", type=int, default=100,
-        help='number of permutation for defining the threshold (should be at least 20)')
+        help='number of permutations for defining the threshold (should be at least 20)')
 
 ## MAF (for k-mers and also for SNPs if used)
 parser.add_argument("--maf", dest = "maf", type=float, default=0.05,
@@ -57,7 +57,7 @@ parser.add_argument("--min_data_points", dest = "min_data_points", type=float, d
 
 ## count patterns of presence absence
 parser.add_argument("--pattern_counter", dest = "kmers_pattern_counter",  
-        help="count number of unique presence/absence k-mers patterns",
+        help="count the number of unique presence/absence k-mers patterns",
         action="store_true")
 
 # Run SNPs associations in ONE step - only run GEMMA
@@ -67,7 +67,7 @@ parser.add_argument("--run_on_snps_one_step", dest = "run_one_step_snps",
 
 # RUN SNPs association in TWO steps - for permutations, first filter likley snps and then run GEMMA on them
 parser.add_argument("--run_on_snps_two_steps", dest = "run_two_steps_snps", 
-        help="run pipeline with the same parameters on SNPs - first approximate for initial filtering and then using GEMMA top hits",
+        help="run pipeline with the same parameters on SNPs - first approximate for initial filtering and then using GEMMA on top hits",
         action="store_true")
 
 # SNP files (bed/bim/fam)
@@ -76,7 +76,7 @@ parser.add_argument("--snp_matrix", dest = "snps_matrix", type=str,
 
 # number of snps to take (if a two step method is used)
 parser.add_argument("--snps_number", dest = "n_snps", type=int, default=10001,
-        help='numbers of snps to filter from first step (used when running a two step snps approximation)')
+        help='numbers of snps to filter from the first step (used when running a two step snps approximation)')
 
 # If you run it only on SNPs 
 parser.add_argument("--dont_run_on_kmers", dest = "run_kmers", help="don't run pipeline on k-mers",
@@ -88,7 +88,7 @@ parser.add_argument("--kinship_snps", dest = "use_kinship_from_kmers",
 
 ## Keep the intermediate files
 parser.add_argument("--dont_remove_intermediates", dest = "remove_intermediate",  
-        help="for debugging, keep the intermediate files", action="store_false")
+        help="keep the intermediate files", action="store_false")
 
 # path for GEMMA
 parser.add_argument("--gemma_path", dest = "gemma_path", type=str,

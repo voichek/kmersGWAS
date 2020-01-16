@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 	try
 	{
 		options.add_options()
-			("l,list_kmers_files", "list of seperate k-mers files", cxxopts::value<string>())
+			("l,list_kmers_files", "list of separate k-mers files", cxxopts::value<string>())
 			("k,kmers_len", "length of k-mers", cxxopts::value<size_t>())
 			("a,all_kmers", "path to file with all k-mers", cxxopts::value<string>())
 			("o,output", "prefix for kmers-table files", cxxopts::value<string>())

@@ -58,9 +58,9 @@ int main(int argc, char *argv[]) {
 	try
 	{
 		options.add_options()
-			("l,list_kmers_files", "list of seperate k-mers files", cxxopts::value<string>())
+			("l,list_kmers_files", "list of separate k-mers files", cxxopts::value<string>())
 			("k,kmers_len", "length of k-mers", cxxopts::value<size_t>())
-			("mac", "minor allele count (minimum allowed apearence of a k-mer)", cxxopts::value<size_t>())
+			("mac", "minor allele count (minimum allowed appearence of a k-mer)", cxxopts::value<size_t>())
 			("p,min_strand_percent", "minimum percent of apperence in each strand form", cxxopts::value<double>())
 			("o,output", "path to output file", cxxopts::value<string>())
 			("help", "print help")
