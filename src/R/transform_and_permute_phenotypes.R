@@ -19,7 +19,7 @@ rm(list = ls())
 # Check if all needed packages are installed and if not install them
 list.of.packages <- c("MASS","mvnpermute","matrixcalc")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
+if(length(new.packages)) install.packages(new.packages, repos = "http://cran.us.r-project.org")
 
 library(MASS) #ginv
 library(mvnpermute) #mvnpermute
