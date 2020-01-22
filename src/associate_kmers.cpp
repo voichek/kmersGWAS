@@ -26,57 +26,40 @@
 #include <iostream>
 #include <utility> //std::pair
 
-#include <boost/program_options.hpp> // For getting parameters from user
 #include "CTPL/ctpl_stl.h" //thread pool library
+#include <cxxopts/include/cxxopts.hpp>
 
 using namespace std;
-namespace po = boost::program_options;
 
-int main(int argc, char* argv[])
-{
-	/* Loading the user defined parameters */
-
-	try {
-		/* Define the input params */
-		po::options_description desc("Allowed options");
-		desc.add_options()
-			("help", "produce help message")
-			("phenotype_file,p",	po::value<string>(),	"phenotype file name")
-			("base_name,b",			po::value<string>(),	"base name to use for all files")
-			("output_dir,o",		po::value<string>()->default_value("."), 
-			 "where to save output files")
-			("kmers_table",			po::value<string>(),	"Presence/absemce k-mer file")
-			("best,n",				po::value<size_t>()->default_value(1000000), 
-			 "Number of best k-mers to report")
-			("first_phenotype_best",		po::value<size_t>(),  "if provided will save a different number of k-mers for the first phenotype")
-			("batch_size",			po::value<size_t>()->default_value(10000000), 
-			 "Loading only part of the presence absence info to memory")
-			("parallel",			po::value<size_t>()->default_value(4), 
-			 "Max number of threads to use")
-			("kmer_len",			po::value<uint32_t>(), 
-			 "Length of the k-mers")
-			("maf",			po::value<double>()->default_value(0.05), 
-			 "Minor allele frequency")
-			("mac",			po::value<size_t>()->default_value(5), 
-			 "Minor allele count")
+int main(int argc, char* argv[]) {
+	cxxopts::Options options("associate_kmers", "Associate k-mers presence/absence pattern with a phenotype of interest");
+	try
+	{
+		options.add_options()
+			("p,phenotype_file", "phenotype file name", cxxopts::value<string>())
+			("b,base_name", "base name to use for all files", cxxopts::value<string>())
+			("o,output_dir", "where to save output files", cxxopts::value<string>()->default_value("."))
+			("kmers_table",	"Presence/absemce k-mer file", cxxopts::value<string>())
+			("n,best", "Number of best k-mers to report", cxxopts::value<size_t>()->default_value("1000000"))
+			("first_phenotype_best", "if provided will save a different number of k-mers for the first phenotype", cxxopts::value<size_t>())
+			("batch_size", "Loading only part of the presence absence info to memory", cxxopts::value<size_t>()->default_value("10000000"))
+			("parallel", "Max number of threads to use", cxxopts::value<size_t>()->default_value("4"))
+			("kmer_len", "Length of the k-mers", cxxopts::value<uint32_t>())
+			("maf", "Minor allele frequency", cxxopts::value<double>()->default_value("0.05")) 
+			("mac", "Minor allele count", cxxopts::value<size_t>()->default_value("5"))
 			("k_mers_scores", "output the best k_mers scores in binary format")
-			("debug_option_batches_to_run",			po::value<uint64_t>()->default_value(NULL_KEY), 
-			 "Change to run only on part of the table")
 			("pattern_counter", "Count the number of unique presence/absence patterns")
+			("help", "print help")
 			;
-
-		/* parse the command line */
-		po::variables_map vm;        
-		po::store(po::parse_command_line(argc, argv, desc), vm);
-		po::notify(vm);    
-
-		/* Output help funciton */
-		if (vm.count("help")) {
-			cout << desc << "\n";
-			return 0;
+		auto vm = options.parse(argc, argv);
+		if (vm.count("help"))
+		{
+			cerr << options.help() << endl;
+			exit(0);
 		}
-		/***************************************************************************************************/
-		// Base name for all save files
+		/****************************************************************************************************/
+		/* END of parsing and checking input parameters */
+		/****************************************************************************************************/
 		string fn_base = vm["output_dir"].as<string>() + "/" + vm["base_name"].as<string>();
 		size_t heap_size = vm["best"].as<size_t>();	// # best k-mers to report
 		size_t batch_size = vm["batch_size"].as<size_t>(); // part of kmers-table to import in each step
@@ -92,7 +75,7 @@ int main(int argc, char* argv[])
 		size_t mac = vm["mac"].as<size_t>(); // Minor allele count
 
 		// This option is for debug perpuses (run only on part of the data)
-		uint64_t debug_option_batches_to_run = vm["debug_option_batches_to_run"].as<uint64_t>();
+		uint64_t debug_option_batches_to_run = NULL_KEY;
 
 		// Loading the phenotype (also include the list of needed accessions)
 		pair<vector<string>, vector<PhenotypeList>> phenotypes_info = load_phenotypes_file(
@@ -222,13 +205,11 @@ int main(int argc, char* argv[])
 		fout.close();
 
 
-	}
-	catch(exception& e) {
-		cerr << "error: " << e.what() << "\n";
-		return 1;
-	}
-	catch(...) {
-		cerr << "Exception of unknown type!\n";
+	} catch (const cxxopts::OptionException& e)
+	{
+		cerr << "error parsing options: " << e.what() << endl;
+		cerr << options.help() << endl;
+		exit(1);
 	}
 	return 0;
 }

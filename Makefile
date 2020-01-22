@@ -2,7 +2,6 @@
 # General parameters of compilations 
 CXX=g++
 CXX_FLAGS = -std=c++14 -Wall -O3 -I ./include/ -pthread -msse4.2 
-LDFLAGS :=  -lstdc++ -lboost_program_options
 ########################################################################################################
 
 BUILD_DIR = build
@@ -18,7 +17,7 @@ OBJ_KMC = $(SRC_CPP_KMC_OBJ:include/KMC/kmc_api/%.cpp=$(BUILD_DIR)/%.o)
 ########################################################################################################
 # Define BIN to be created
 SRC_CPP_BIN = $(filter-out $(SRC_CPP_OBJ),$(wildcard src/*.cpp))
-BIN = $(filter-out associate_kmers,$(SRC_CPP_BIN:src/%.cpp=%))
+BIN = $(SRC_CPP_BIN:src/%.cpp=%)
 ########################################################################################################
 # Define dependencies - Gcc/Clang will create these .d files containing dependencies.
 DEP = $(OBJ:%.o=%.d)
@@ -26,14 +25,8 @@ DEP = $(OBJ:%.o=%.d)
 
 ########################################################################################################
 # Define rules
-
-all: $(BIN) associate_kmers
+all: $(BIN) 
 	@echo "Built everything"
-
-associate_kmers: $(OBJ) $(OBJ_KMC)
-	mkdir -p bin
-	@echo $^
-	$(CXX) $(CXX_FLAGS)  $^ src/$(notdir $@).cpp  -o bin/$@ $(LDFLAGS)
 
 $(BIN) : $(OBJ_KMC) $(OBJ)
 	@echo $^
