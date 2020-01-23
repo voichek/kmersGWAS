@@ -72,7 +72,7 @@ close(f_log)
 
 # 4. Permute the phenotypes if needed
 if(n_permute > 0) {
-  permute_phenotype <- mvnpermute(phenotypes$phenotype_value, rep(1, n_acc), COV_MATRIX, nr=n_permute, seed=123456789)
+  permute_phenotype <- mvnpermute(phenotypes$phenotype_value, rep(1, n_acc), COV_MATRIX, nr=n_permute)
   # 3. Permute phenotypes
   for(i in 1:n_permute) { phenotypes[paste("P",i, sep = '')] <- permute_phenotype[,i] }
 }
