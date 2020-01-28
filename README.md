@@ -21,7 +21,7 @@ Details on how to create a *k*-mers table and how to run GWA can be found in [th
 ## Prerequisites:
 + Linux system with a 64 bit CPU
 + R
-+ python
++ python**2.7**
 + KMC (part of the release under external_programs/ directory)
 + GEMMA (part of the release under external_programs/ directory)
 + R packages (if not present the pipeline will try to automatically install):
