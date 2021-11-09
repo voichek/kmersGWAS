@@ -38,6 +38,6 @@ In the examples directory there are two examples of how to use the library:
 ## Citing
 If you used our library for published work, please cite us:
 
-[Finding genetic variants in plants without complete genomes](https://www.biorxiv.org/content/10.1101/818096v2)
+[Identifying genetic variants underlying phenotypic variation in plants without complete genomes](https://www.nature.com/articles/s41588-020-0612-7)
 
 Yoav Voichek and Detlef Weigel (2019).
