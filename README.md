@@ -29,6 +29,7 @@ Details on how to create a *k*-mers table and how to run GWA can be found in [th
   + Mvnpermute
   + matrixcalc
 
+**NOTE**: Instead of installing all the dependencies, you can alternatively build a docker container with all the dependencies as well as the scripts for kmersGWAS pre-installed in `/app` directory as outlined in the [Dockerfile](Dockerfile). An existing Docker image exists at [DockerHub](https://hub.docker.com/repository/docker/tayabsoomro/kmer-gwas)
 
 ## Examples:
 In the examples directory there are two examples of how to use the library:
