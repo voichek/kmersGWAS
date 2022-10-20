@@ -146,12 +146,15 @@ int main(int argc, char* argv[]) {
 
 			// Start reading files
 			uint64_t i_kl(0); // index kmers list
-			uint64_t i_kt(0); // index kmers table
+			uint64_t i_kt(0); // number of rows read from kmers table
 			vector<uint64_t> buffer(words_per_kmer+1);
 			bool advance_row = true;
-			while((i_kl < sorted_kmers.size()) && (i_kt < kmer_number)) {
-				if(advance_row) { 
+			while((i_kl < sorted_kmers.size())  && // Position in input list
+					((i_kt < kmer_number) || (!advance_row))) //how much of the kmers-table was read
+		       	{
+				if(advance_row) { // Reading a row from the kmers-table 
 					table_handle.read(reinterpret_cast<char *>(buffer.data()), sizeof(uint64_t)*buffer.size());
+					i_kt++;
 					advance_row = false;
 				}
 
@@ -163,11 +166,11 @@ int main(int argc, char* argv[]) {
 						fout << "\t" << new_bit;
 					}
 					fout << "\n";
-					i_kl++; i_kt++; // advance both
+					i_kl++; // Advance the index in the list of input k-mers
+					advance_row=true; // Advance the row in the kmers-table
 				} else { //advance only the smaller
 					if(buffer[0] < sorted_kmers[i_kl]) {
 						advance_row=true;
-						i_kt++;
 					} else {
 						i_kl++;
 					}
