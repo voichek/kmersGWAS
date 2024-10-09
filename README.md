@@ -29,8 +29,6 @@ Details on how to create a *k*-mers table and how to run GWA can be found in [th
   + Mvnpermute
   + matrixcalc
 
-**NOTE**: A user of this library (Tayab Soomro) built a [docker image](https://hub.docker.com/repository/docker/tayabsoomro/kmer-gwas) that can be used instead of installing all the dependencies (or you can download the [dockerfile](https://github.com/tayabsoomro/kmersGWAS/blob/master/Dockerfile)). There is also a [Snakemake-based pipeline](https://github.com/akcorut/kGWASflow) that wraps the _k_-mers-based GWAS and has other functionalities.
-
 ## Examples:
 In the examples directory there are two examples of how to use the library:
 1. **Pre-existing _k_-mers table, only run the _k_-mers-base GWA** - Using the _k_-mers table for _A. thaliana_ 1001G to run _k_-mers-based GWA on flowering time (same as Fig. 1 in our paper). This table can be used also to run GWA on other phenotypes measured on accessions part of the 1001G.
