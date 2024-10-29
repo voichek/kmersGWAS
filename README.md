@@ -39,4 +39,4 @@ If you used our library for published work, please cite us:
 
 [Identifying genetic variants underlying phenotypic variation in plants without complete genomes](https://www.nature.com/articles/s41588-020-0612-7)
 
-Yoav Voichek and Detlef Weigel (2019).
+Yoav Voichek and Detlef Weigel (2020).
