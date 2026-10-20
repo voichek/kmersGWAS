@@ -1,7 +1,7 @@
 ########################################################################################################
 # General parameters of compilations 
 CXX=g++
-CXX_FLAGS = -std=c++14 -Wall -O3 -I ./include/ -pthread -msse4.2 
+CXX_FLAGS = -std=c++14 -Wall -O3 -I ./include/ -pthread -msse4.2 -fopenmp
 ########################################################################################################
 
 BUILD_DIR = build
