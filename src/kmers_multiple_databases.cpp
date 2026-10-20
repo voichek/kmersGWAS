@@ -417,23 +417,37 @@ void MultipleKmersDataBases::update_gamma_precalculations(vector<vector<double> 
 
 void MultipleKmersDataBases::update_emma_kinshhip_calculation(std::vector<std::vector<uint64_t> > &K, 
 		uint64_t &counter) const {
-	vector<uint64_t> g(m_accessions, 0);
-	for(size_t kmer_index=0; kmer_index<m_kmers.size(); kmer_index++) {
-		// Calculate g's
-		size_t container_i = kmer_index*m_hash_words;
-		for(size_t i=0; i<m_accessions; i++) {
-			uint64_t hashmap_i = (i>>6);
-			uint64_t bit_i = i&63;
-			g[i] = (m_kmers_table[container_i+hashmap_i] >> bit_i) & 1ull;
+	// K[i][j] counts the k-mers on which accessions i and j agree (both present or both absent).
+	// K-mers are handled in blocks of 64: w[i] holds the presence of accession i in each k-mer of
+	// the block (one bit per k-mer), so the agreements of a pair over the whole block are
+	// popcount(~(w[i]^w[j])). Same integer counts as one k-mer at a time, ~64x fewer operations.
+	const size_t n_kmers = m_kmers.size();
+	vector<uint64_t> w(m_accessions, 0);
+	for(size_t block_start=0; block_start<n_kmers; block_start+=64) {
+		const size_t block_size = min<size_t>(64, n_kmers-block_start);
+		const uint64_t block_mask = (block_size == 64) ? ~0ull : ((1ull<<block_size)-1);
+		// Transpose the block
+		fill(w.begin(), w.end(), 0);
+		for(size_t b=0; b<block_size; b++) {
+			size_t container_i = (block_start+b)*m_hash_words;
+			for(size_t i=0; i<m_accessions; i++) {
+				uint64_t hashmap_i = (i>>6);
+				uint64_t bit_i = i&63;
+				w[i] |= ((m_kmers_table[container_i+hashmap_i] >> bit_i) & 1ull) << b;
+			}
 		}
 
 		// update R
-		for(size_t i=0; i<m_accessions; i++) 
-			for(size_t j=0; j<i; j++) 
-				K[i][j] += (1ull^g[i]^g[j]);
+#pragma omp parallel for schedule(dynamic, 16)
+		for(size_t i=0; i<m_accessions; i++) {
+			const uint64_t w_i = w[i];
+			uint64_t *K_i = K[i].data();
+			for(size_t j=0; j<i; j++)
+				K_i[j] += _mm_popcnt_u64(~(w_i^w[j]) & block_mask);
+		}
 
 		// update M
-		counter++;
+		counter += block_size;
 	}
 }
 
